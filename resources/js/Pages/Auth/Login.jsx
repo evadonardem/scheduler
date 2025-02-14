@@ -56,7 +56,7 @@ const Login = ({ errors }) => {
             backgroundRepeat: 'no-repeat',
             backgroundColor: (t) =>
               t.palette.mode === 'light' ? t.palette.grey[50] : t.palette.grey[900],
-            backgroundSize: 'contain',
+            backgroundSize: '33%',
             backgroundPosition: 'center',
           }}
         />
