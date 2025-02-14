@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -35,8 +36,73 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $appMenu = [];
+        if (Auth::check()) {
+            $appMenu = [
+                [
+                    [
+                        'label' => 'Dashboard',
+                        'icon' => 'dashboard',
+                        'route' => 'dashboard',
+                    ],
+                ],
+                [
+                    [
+                        'label' => 'Schedules',
+                        'icon' => 'calendar_month',
+                        'route' => '',
+                    ],
+                    [
+                        'label' => 'Settings',
+                        'icon' => 'settings',
+                        'submenu' => [
+                            [
+                                'label' => 'Departments Registry',
+                                'icon' => 'apartment',
+                                'route' => 'departments',
+                            ],
+                            [
+                                'label' => 'Courses Registry',
+                                'icon' => 'school',
+                                'route' => 'courses',
+                            ],
+                            [
+                                'label' => 'Subjects Registry',
+                                'icon' => 'list_alt',
+                                'route' => 'subjects',
+                            ],
+                            [
+                                'label' => 'Curriculums Registry',
+                                'icon' => 'tab',
+                                'route' => '',
+                            ],
+                            [
+                                'label' => 'Rooms Registry',
+                                'icon' => 'room_preferences',
+                                'route' => '',
+                            ],
+                            [
+                                'label' => 'Users Registry',
+                                'icon' => 'people',
+                                'route' => 'users',
+                            ],
+                        ]
+                    ],
+                ]
+            ];
+        }
+
         return array_merge(parent::share($request), [
-            //
+            'appName' => config('app.name'),
+            'appMenu' => $appMenu,
+            'auth' => Auth::user() ? [
+                'id' => Auth::user()->id,
+                'email' => Auth::user()->email,
+                'name' => Auth::user()->name,
+                'roles' => Auth::user()->roles->pluck('name'),
+                'token' => request()->user()?->createToken('i-evaluate')->plainTextToken,
+            ] : null,
+            'flashMessage' => $request->session()->get('scheduler-flash-message'),
         ]);
     }
 }
