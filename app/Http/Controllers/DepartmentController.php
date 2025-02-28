@@ -23,8 +23,13 @@ class DepartmentController extends Controller
         $perPage = $request->input('per_page', 5);
 
         $departments = $this->departmentModel->newQuery()
-            ->orderBy('title')
-            ->paginate($perPage);
+            ->orderBy('title');
+
+        if ($perPage > 0) {
+            $departments = $departments->paginate($perPage);
+        } else {
+            $departments = $departments->get();
+        }
 
         return Inertia::render('Department/List', [
             'departments' => DepartmentResource::collection($departments),

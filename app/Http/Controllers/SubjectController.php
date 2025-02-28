@@ -26,8 +26,13 @@ class SubjectController extends Controller
 
         $subjects = $this->subjectModel->newQuery()
             ->with('department')
-            ->orderBy('title')
-            ->paginate($perPage);
+            ->orderBy('title');
+
+        if ($perPage > 0) {
+            $subjects = $subjects->paginate($perPage);
+        } else {
+            $subjects = $subjects->get();
+        }
 
         return Inertia::render('Subject/List', [
             'subjects' => SubjectResource::collection($subjects),

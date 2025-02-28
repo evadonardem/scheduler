@@ -36,9 +36,6 @@ const List = ({ errors, users }) => {
         return rowCountRef.current;
     }, [users?.meta?.total]);
 
-    console.log(paginationModel);
-    console.log(rowCount);
-
     const handlePaginationChange = (newPaginationModel) => {
         router.get('/users', {
             page: newPaginationModel.page + 1,
@@ -79,8 +76,8 @@ const List = ({ errors, users }) => {
             flex: 1,
             headerName: 'Department',
             sortable: false,
-            valueGetter: (cell) => cell?.row.department
-                ? `${cell.row.department.code} - ${cell.row.department.title}`
+            valueGetter: (department) => department
+                ? `${department.code} - ${department.title}`
                 : '-',
         },
     ];
@@ -133,7 +130,7 @@ const List = ({ errors, users }) => {
                 density="compact"
                 onPaginationModelChange={handlePaginationChange}
                 pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
-                paginationMode={users.meta ? 'server' : 'client'}
+                paginationMode="server"
                 paginationModel={paginationModel}
                 rowCount={rowCount}
                 rows={users.data}

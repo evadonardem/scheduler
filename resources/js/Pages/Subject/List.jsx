@@ -1,9 +1,13 @@
-import { DataGrid } from "@mui/x-data-grid";
+import { DataGrid, GridToolbarContainer, GridToolbarExport } from "@mui/x-data-grid";
 import MainLayout from "../../MainLayout";
 import { Box, Button, Link, Paper, Stack, styled } from "@mui/material";
 import { CloudUpload } from "@mui/icons-material";
 import React from 'react';
 import { router } from "@inertiajs/react";
+
+const CustomToolbar = () => <GridToolbarContainer>
+    <GridToolbarExport printOptions={{ disableToolbarButton: true }} />
+</GridToolbarContainer>;
 
 const VisuallyHiddenInput = styled('input')({
     clip: 'rect(0 0 0 0)',
@@ -19,18 +23,18 @@ const VisuallyHiddenInput = styled('input')({
 
 const List = ({ errors, subjects }) => {
     const [paginationModel, setPaginationModel] = React.useState({
-        page: subjects.meta.current_page - 1,
-        pageSize: subjects.meta.per_page,
+        page: subjects?.meta ? subjects.meta.current_page - 1 : 0,
+        pageSize: subjects?.meta?.per_page || -1,
     });
 
-    const rowCountRef = React.useRef(subjects.meta.total || 0);
+    const rowCountRef = React.useRef(subjects?.meta?.total || subjects.data.length || 0);
 
     const rowCount = React.useMemo(() => {
-        if (subjects.meta.total !== undefined) {
+        if (subjects?.meta?.total !== undefined) {
             rowCountRef.current = subjects.meta.total;
         }
         return rowCountRef.current;
-    }, [subjects.meta.total]);
+    }, [subjects?.meta?.total]);
 
     const handlePaginationChange = (newPaginationModel) => {
         router.get('/subjects', {
@@ -60,7 +64,7 @@ const List = ({ errors, subjects }) => {
             flex: 0.5,
             headerName: 'Department',
             sortable: false,
-            valueGetter: (cell) => `${cell.row.department.code} - ${cell.row.department.title}`,
+            valueGetter: (department) => `${department.code} - ${department.title}`,
         }
     ];
 
@@ -111,18 +115,19 @@ const List = ({ errors, subjects }) => {
             <DataGrid
                 columns={columns}
                 density="compact"
-                disableColumnMenu={true}
                 onPaginationModelChange={handlePaginationChange}
-                pageSizeOptions={[5, 10, 15]}
+                pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
                 paginationMode="server"
                 paginationModel={paginationModel}
                 rowCount={rowCount}
                 rows={subjects.data}
+                slots={{ toolbar: CustomToolbar }}
+                disableColumnMenu
             />
         </>
     );
 };
 
-List.layout = page => <MainLayout children={page} title="Evaluation Forms" />;
+List.layout = page => <MainLayout children={page} title="Subjects" />;
 
 export default List;

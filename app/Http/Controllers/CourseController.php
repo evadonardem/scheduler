@@ -27,8 +27,13 @@ class CourseController extends Controller
 
         $courses = $this->courseModel->newQuery()
             ->with('department')
-            ->orderBy('title')
-            ->paginate($perPage);
+            ->orderBy('title');
+
+        if ($perPage > 0) {
+            $courses = $courses->paginate($perPage);
+        } else {
+            $courses = $courses->get();
+        }
 
         return Inertia::render('Course/List', [
             'courses' => CourseResource::collection($courses),

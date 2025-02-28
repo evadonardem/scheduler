@@ -36,6 +36,8 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        request()->user()?->tokens()->delete();
+
         $appMenu = [];
         if (Auth::check()) {
             $appMenu = [
@@ -86,9 +88,9 @@ class HandleInertiaRequests extends Middleware
                                 'icon' => 'people',
                                 'route' => 'users',
                             ],
-                        ]
+                        ],
                     ],
-                ]
+                ],
             ];
         }
 
@@ -100,7 +102,7 @@ class HandleInertiaRequests extends Middleware
                 'email' => Auth::user()->email,
                 'name' => Auth::user()->name,
                 'roles' => Auth::user()->roles->pluck('name'),
-                'token' => request()->user()?->createToken('i-evaluate')->plainTextToken,
+                'token' => request()->user()?->createToken('scheduler')->plainTextToken,
             ] : null,
             'flashMessage' => $request->session()->get('scheduler-flash-message'),
         ]);

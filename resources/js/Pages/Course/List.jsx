@@ -1,9 +1,13 @@
-import { DataGrid } from "@mui/x-data-grid";
+import { DataGrid, GridToolbarContainer, GridToolbarExport } from "@mui/x-data-grid";
 import MainLayout from "../../MainLayout";
 import { Box, Button, Link, Paper, Stack, styled } from "@mui/material";
 import { CloudUpload } from "@mui/icons-material";
 import React from 'react';
 import { router } from "@inertiajs/react";
+
+const CustomToolbar = () => <GridToolbarContainer>
+    <GridToolbarExport printOptions={{ disableToolbarButton: true }} />
+</GridToolbarContainer>;
 
 const VisuallyHiddenInput = styled('input')({
     clip: 'rect(0 0 0 0)',
@@ -19,18 +23,18 @@ const VisuallyHiddenInput = styled('input')({
 
 const List = ({ errors, courses }) => {
     const [paginationModel, setPaginationModel] = React.useState({
-        page: courses.meta.current_page - 1,
-        pageSize: courses.meta.per_page,
+        page: courses?.meta ? courses.meta.current_page - 1 : 0,
+        pageSize: courses?.meta?.per_page || -1,
     });
 
-    const rowCountRef = React.useRef(courses.meta.total || 0);
+    const rowCountRef = React.useRef(courses?.meta?.total || courses.data.length || 0);
 
     const rowCount = React.useMemo(() => {
-        if (courses.meta.total !== undefined) {
+        if (courses?.meta?.total !== undefined) {
             rowCountRef.current = courses.meta.total;
         }
         return rowCountRef.current;
-    }, [courses.meta.total]);
+    }, [courses?.meta?.total]);
 
     const handlePaginationChange = (newPaginationModel) => {
         router.get('/courses', {
@@ -60,7 +64,7 @@ const List = ({ errors, courses }) => {
             flex: 0.5,
             headerName: 'Department',
             sortable: false,
-            valueGetter: (cell) => `${cell.row.department.code} - ${cell.row.department.title}`,
+            valueGetter: (department) => `${department.code} - ${department.title}`,
         }
     ];
 
@@ -110,13 +114,14 @@ const List = ({ errors, courses }) => {
             <DataGrid
                 columns={columns}
                 density="compact"
-                disableColumnMenu={true}
                 onPaginationModelChange={handlePaginationChange}
-                pageSizeOptions={[5, 10, 15]}
+                pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
                 paginationMode="server"
                 paginationModel={paginationModel}
                 rowCount={rowCount}
                 rows={courses.data}
+                slots={{ toolbar: CustomToolbar }}
+                disableColumnMenu
             />
         </>
     );

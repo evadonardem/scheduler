@@ -23,18 +23,18 @@ const VisuallyHiddenInput = styled('input')({
 
 const List = ({ departments }) => {
     const [paginationModel, setPaginationModel] = React.useState({
-        page: departments.meta.current_page - 1,
-        pageSize: departments.meta.per_page,
+        page: departments?.meta ? departments.meta.current_page - 1 : 0,
+        pageSize: departments?.meta?.per_page || -1,
     });
 
-    const rowCountRef = React.useRef(departments.meta.total || 0);
+    const rowCountRef = React.useRef(departments?.meta?.total || departments.data.length || 0);
 
     const rowCount = React.useMemo(() => {
-        if (departments.meta.total !== undefined) {
+        if (departments?.meta?.total !== undefined) {
             rowCountRef.current = departments.meta.total;
         }
         return rowCountRef.current;
-    }, [departments.meta.total]);
+    }, [departments?.meta?.total]);
 
     const handlePaginationChange = (newPaginationModel) => {
         router.get('/departments', {
@@ -63,7 +63,6 @@ const List = ({ departments }) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
         const formJson = Object.fromEntries(formData.entries());
-        console.log(formJson);
         router.post(`/departments`, formJson, {
             preserveScroll: true,
             preserveState: false,
@@ -78,7 +77,7 @@ const List = ({ departments }) => {
                         <Button
                             component="label"
                             role={undefined}
-                            variant="contained"
+                            variant="outlined"
                             tabIndex={-1}
                             startIcon={<CloudUpload />}
                             onSubmit={handleImport}
@@ -106,7 +105,7 @@ const List = ({ departments }) => {
                 columns={columns}
                 density="compact"
                 onPaginationModelChange={handlePaginationChange}
-                pageSizeOptions={[5, 10, 15, { label: 'All', value: departments?.meta?.total || departments.data.length }]}
+                pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
                 paginationMode="server"
                 paginationModel={paginationModel}
                 rowCount={rowCount}
