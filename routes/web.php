@@ -7,6 +7,7 @@ use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\PingController;
+use App\Http\Controllers\RoomController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -34,24 +35,14 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/profile/{user}', [UserController::class, 'edit'])->name('profile.edit');
 
-    Route::group(['prefix' => '/departments'], static function () {
-        Route::get('/', [DepartmentController::class, 'index']);
-        Route::post('/', [DepartmentController::class, 'store']);
-    });
-
-    Route::group(['prefix' => '/subjects'], static function () {
-        Route::get('/', [SubjectController::class, 'index']);
-        Route::post('/', [SubjectController::class, 'store']);
-    });
-
     Route::group(['prefix' => '/courses'], static function () {
         Route::get('/', [CourseController::class, 'index'])->name('courses.list');
         Route::post('/', [CourseController::class, 'store']);
     });
 
-    Route::group(['prefix' => '/users'], static function () {
-        Route::get('/', [UserController::class, 'index'])->name('users.list');
-        Route::post('/', [UserController::class, 'store']);
+    Route::group(['prefix' => '/departments'], static function () {
+        Route::get('/', [DepartmentController::class, 'index']);
+        Route::post('/', [DepartmentController::class, 'store']);
     });
 
     Route::group(['prefix' => '/import-templates'], static function () {
@@ -59,6 +50,21 @@ Route::middleware('auth')->group(function () {
         Route::get('/courses', [CourseController::class, 'downloadTemplate']);
         Route::get('/subjects', [SubjectController::class, 'downloadTemplate']);
         Route::get('/users', [UserController::class, 'downloadTemplate']);
+    });
+
+    Route::group(['prefix' => '/rooms'], static function () {
+        Route::get('/', [RoomController::class, 'index']);
+        //Route::post('/', [SubjectController::class, 'store']);
+    });
+
+    Route::group(['prefix' => '/subjects'], static function () {
+        Route::get('/', [SubjectController::class, 'index']);
+        Route::post('/', [SubjectController::class, 'store']);
+    });
+
+    Route::group(['prefix' => '/users'], static function () {
+        Route::get('/', [UserController::class, 'index'])->name('users.list');
+        Route::post('/', [UserController::class, 'store']);
     });
 });
 

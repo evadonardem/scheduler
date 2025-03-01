@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Course;
 use App\Models\Department;
+use App\Models\Room;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -14,6 +15,7 @@ class FakeSeeder extends Seeder
     public function __construct(
         private Course $course,
         private Department $department,
+        private Room $room,
         private Subject $subject,
         private User $user
     ) {}
@@ -73,5 +75,9 @@ class FakeSeeder extends Seeder
             $user->assignRole('Dean');
         });
         $this->command->info('Done! Fake departments, courses, subjects, and users created.');
+
+
+        $this->room->newQuery()->delete();
+        $this->room->factory(100)->create();
     }
 }

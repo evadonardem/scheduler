@@ -81,7 +81,7 @@ class HandleInertiaRequests extends Middleware
                             [
                                 'label' => 'Rooms Registry',
                                 'icon' => 'room_preferences',
-                                'route' => '',
+                                'route' => 'rooms',
                             ],
                             [
                                 'label' => 'Users Registry',
