@@ -3,6 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\Course;
+use App\Models\Curriculum;
+use App\Models\CurriculumSubject;
 use App\Models\Department;
 use App\Models\Room;
 use App\Models\Subject;
@@ -14,6 +16,8 @@ class FakeSeeder extends Seeder
 {
     public function __construct(
         private Course $course,
+        private CurriculumSubject $curriculumSubject,
+        private Curriculum $curriculum,
         private Department $department,
         private Room $room,
         private Subject $subject,
@@ -56,7 +60,7 @@ class FakeSeeder extends Seeder
                 $this->course->factory(2)
             )
             ->has(
-                $this->subject->factory(5)
+                $this->subject->factory(50)
             )
             ->create();
         $departments->each(function (Department $department) {
@@ -76,8 +80,29 @@ class FakeSeeder extends Seeder
         });
         $this->command->info('Done! Fake departments, courses, subjects, and users created.');
 
-
+        $this->command->line('Create fake rooms...');
         $this->room->newQuery()->delete();
         $this->room->factory(100)->create();
+        $this->command->info('Done! Fake rooms created.');
+
+        $this->command->line('Create fake curriculums...');
+        $this->course->newQuery()->get()->each(function (Course $course) use ($defaultUser) {
+            $curriculum = $this->curriculum->factory()->create([
+                'course_id' => $course->id,
+                'is_active' => fake()->boolean(),
+                'is_draft' => fake()->boolean(),
+                'created_by' => $defaultUser->id,
+            ]);
+
+            foreach (range(1, 4) as $yearLevel) {
+                $this->curriculumSubject->factory()->create([
+                    'curriculum_id' => $curriculum->id,
+                    'year_level' => $yearLevel,
+                    'subject_id' => Subject::all()->random()->id,
+                    'created_by' => $defaultUser->id,
+                ]);
+            }
+        });
+        $this->command->info('Done! Fake curriculums created.');
     }
 }

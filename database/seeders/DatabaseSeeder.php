@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             RoleSeeder::class,
+            SemesterSeeder::class,
         ]);
 
         $defaultUser->assignRole('Super Admin');

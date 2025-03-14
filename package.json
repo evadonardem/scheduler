@@ -6,22 +6,25 @@
         "build": "vite build"
     },
     "devDependencies": {
-        "axios": "^1.8.1",
+        "axios": "^1.8.3",
         "laravel-vite-plugin": "^1.2",
         "vite": "^6.2"
     },
     "dependencies": {
         "@emotion/react": "^11.14.0",
         "@emotion/styled": "^11.14.0",
-        "@inertiajs/react": "^2.0.3",
-        "@mui/icons-material": "^6.4.6",
-        "@mui/material": "^6.4.6",
-        "@mui/x-data-grid": "^7.27.2",
-        "@mui/x-date-pickers": "^7.27.1",
+        "@inertiajs/react": "^2.0.5",
+        "@mui/icons-material": "^6.4.7",
+        "@mui/material": "^6.4.7",
+        "@mui/x-data-grid": "^7.27.3",
+        "@mui/x-date-pickers": "^7.27.3",
         "@vitejs/plugin-react": "^4.3.4",
         "dayjs": "^1.11.13",
         "lodash": "^4.17.21",
+        "moment": "^2.30.1",
+        "prop-types": "^15.8.1",
         "react": "^19.0.0",
+        "react-big-calendar": "^1.18.0",
         "react-dom": "^19.0.0"
     }
 }

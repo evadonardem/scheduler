@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('name');
             $table->boolean('is_lec');
             $table->boolean('is_lab');
+            $table->integer('capacity')->nullable();
             $table->timestamps();
         });
     }

@@ -4,6 +4,8 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\CurriculumController;
+use App\Http\Controllers\CurriculumSubjectController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\PingController;
@@ -40,6 +42,15 @@ Route::middleware('auth')->group(function () {
         Route::post('/', [CourseController::class, 'store']);
     });
 
+    Route::group(['prefix' => '/curricula'], static function () {
+        Route::get('/', [CurriculumController::class, 'index'])->name('curricula.list');
+        // Route::post('/', [CurriculumController::class, 'store']);
+
+        Route::group(['prefix' => '/{curriculum}/subjects'], static function () {
+            Route::get('/', [CurriculumSubjectController::class, 'index']);
+        });
+    });
+
     Route::group(['prefix' => '/departments'], static function () {
         Route::get('/', [DepartmentController::class, 'index']);
         Route::post('/', [DepartmentController::class, 'store']);
@@ -53,12 +64,12 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::group(['prefix' => '/rooms'], static function () {
-        Route::get('/', [RoomController::class, 'index']);
-        //Route::post('/', [SubjectController::class, 'store']);
+        Route::get('/', [RoomController::class, 'index'])->name('rooms.list');
+        // Route::post('/', [RoomController::class, 'store']);
     });
 
     Route::group(['prefix' => '/subjects'], static function () {
-        Route::get('/', [SubjectController::class, 'index']);
+        Route::get('/', [SubjectController::class, 'index'])->name('subjects.list');
         Route::post('/', [SubjectController::class, 'store']);
     });
 

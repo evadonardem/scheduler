@@ -74,9 +74,9 @@ class HandleInertiaRequests extends Middleware
                                 'route' => 'subjects',
                             ],
                             [
-                                'label' => 'Curriculums Registry',
+                                'label' => 'Curricula Registry',
                                 'icon' => 'tab',
-                                'route' => '',
+                                'route' => 'curricula',
                             ],
                             [
                                 'label' => 'Rooms Registry',

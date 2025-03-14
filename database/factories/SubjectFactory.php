@@ -24,7 +24,7 @@ class SubjectFactory extends Factory
 
         return [
             'title' => $title,
-            'code' => $code,
+            'code' => $code.fake()->numerify('####'),
         ];
     }
 }
