@@ -13,9 +13,7 @@ class RoomController extends Controller
 {
     public function __construct(
         protected Room $roomModel
-    ) {
-        
-    }
+    ) {}
 
     /**
      * Display a listing of the resource.

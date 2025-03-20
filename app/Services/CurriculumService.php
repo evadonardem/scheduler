@@ -23,8 +23,8 @@ class CurriculumService
             ->groupBy(function (CurriculumSubject $curriculumSubject) {
                 return "$curriculumSubject->year_level-$curriculumSubject->semester_id";
             });
-        
-        $registeredYearLevels->each(function ($item) use ($curriculumSubjectsGroupByYearLevel){
+
+        $registeredYearLevels->each(function ($item) use ($curriculumSubjectsGroupByYearLevel) {
             $item->subjects = $curriculumSubjectsGroupByYearLevel->get("$item->year_level-$item->semester_id");
         });
 

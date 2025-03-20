@@ -17,7 +17,7 @@ class RoomFactory extends Factory
     public function definition(): array
     {
         return [
-            'code' => fake()->randomLetter() . fake()->numerify('#####'),
+            'code' => fake()->randomLetter().fake()->numerify('#####'),
             'name' => fake()->words(3, true),
             'is_lec' => fake()->boolean(),
             'is_lab' => fake()->boolean(),

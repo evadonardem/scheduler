@@ -1,179 +1,304 @@
-import { Box, Paper, Tooltip, Typography } from "@mui/material";
+import { Badge, Box, Card, CardContent, Chip, Divider, Grid2, Paper, Typography } from "@mui/material";
 import moment from "moment";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Calendar, momentLocalizer, Views } from "react-big-calendar";
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import PropTypes from "prop-types";
-import { CheckBox, Info } from "@mui/icons-material";
+import ColorHash from "color-hash";
+import axios from "axios";
+import { usePage } from "@inertiajs/react";
 
 const localizer = momentLocalizer(moment);
 const CalendarDragAndDrop = withDragAndDrop(Calendar);
+const colorHashGenerator = (str) => new ColorHash().hex(str);
 
-const SchedulerWidget = ({ startDate, endDate, resources }) => {
+const SchedulerWidget = ({
+  academicYear,
+  semester,
+  startDate,
+  endDate,
+  subjectClasses,
+  resources
+}) => {
 
-  const { defaultDate } = useMemo(() => ({
-    defaultDate: startDate
-  }), []);
-
-  const subjectClasses = [
-    {
-      id: 1,
-      code: 'Prog 1',
-      days: [5, 6],
-      room_id: resources[Math.floor(Math.random() * resources.length)].id,
-      session_duration: 2.5,
-      session_start_time: {
-        hour: 7,
-        minute: 30,
-        second: 0,
-      },
-    },
-    {
-      id: 2,
-      code: 'Prog 2',
-      hours_per_day: 1,
-      days: [1, 3, 5],
-      room_id: resources[Math.floor(Math.random() * resources.length)].id,
-      session_duration: 1,
-      session_start_time: {
-        hour: 8,
-        minute: 30,
-        second: 0,
-      },
-    }
-  ];
+  const { auth } = usePage().props;
+  const { token } = auth;
 
   const slots = (day) => {
-    // Array to hold all Fridays
     let days = [];
     const start = startDate.clone();
     const end = endDate.clone();
 
     // Iterate from the start date to the end date
     while (start.isBefore(end) || start.isSame(end)) {
-        // Check if the current day is Friday (5)
-        if (start.isoWeekday() === day) {
-            days.push(start.clone()); // Store the formatted date
-        }
-        // Move to the next day
-        start.add(1, 'days');
+      // Check if the current day is Friday (5)
+      if (start.isoWeekday() === day) {
+        days.push(start.clone()); // Store the formatted date
+      }
+      // Move to the next day
+      start.add(1, 'days');
     }
 
     return days; // Return the array of Fridays
   };
 
+  const unscheduledSubjectClasses = useMemo(() => {
+    return subjectClasses.filter((subjectClass) => {
+      const { schedule } = subjectClass;
+      let isScheduled = true;
+      if (schedule) {
+        const { days } = schedule;
+        days.forEach((day) => {
+          isScheduled = isScheduled && !!day.start_time && !!day.resource_id;
+        });
+      }
+      return !schedule || !isScheduled;
+    });
+  }, [subjectClasses]);
 
-  const shit = [];
+  const scheduledSubjectClasses = useMemo(() => {
+    return subjectClasses.filter((subjectClass) => {
+      const { schedule } = subjectClass;
+      let isScheduled = true;
+      if (schedule) {
+        const { days } = schedule;
+        days.forEach((day) => {
+          isScheduled = isScheduled && !!day.start_time && !!day.resource_id;
+        });
+      }
+      return schedule && isScheduled;
+    });
+  }, [subjectClasses]);
 
-  subjectClasses.forEach((subjectClass) => {
-    subjectClass.days.forEach((day) => {
-      const slotsByDay = slots(day);
-      console.log('dave', slotsByDay);
+  const scheduledEvents = [];
+  scheduledSubjectClasses.forEach((subjectClass) => {
+    const { schedule } = subjectClass ?? {};
+    const { per_session_duration, days } = schedule ?? {};
 
-      const { hour, minute, second } = subjectClass.session_start_time;
+    days.forEach((day) => {
+      const slotsByDay = slots(day.day);
+      const { hour, minute, second, resource_id: resourceId } = {
+        hour: day.start_time.hour,
+        minute: day.start_time.minute,
+        second: day.start_time.second,
+        resource_id: day.resource_id,
+      };
 
       slotsByDay.forEach((slot) => {
-        const s = slot.clone().set({ hour, minute, second});
-        const e = s.clone().add(subjectClass.session_duration, 'hours');
-        shit.push({
+        const s = slot.clone().set({ hour, minute, second });
+        const e = s.clone().add(per_session_duration, 'hours');
+        scheduledEvents.push({
           id: subjectClass.id,
           title: subjectClass.code,
+          color: colorHashGenerator(subjectClass.code),
           start: s.toDate(),
           end: e.toDate(),
-          resourceId: resources.find((resource) => resource.id == subjectClass.room_id).id,
+          resourceId,
         });
       });
     });
   });
 
-  const CustomResourceView = ({ date, events }) => {
-    // Specify the custom start and end date for the view
-    const customStart = new Date(2023, 10, 1);  // November 1, 2023
-    const customEnd = new Date(2023, 10, 7);   // November 7, 2023
-    
-    // Filter events within the custom date range
-    const filteredEvents = events.filter(event =>
-      event.start >= customStart && event.end <= customEnd
-    );
-  
-    return (
-      <div>
-        <h2>{`Custom Resource View from ${customStart.toLocaleDateString()} to ${customEnd.toLocaleDateString()}`}</h2>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {resources.map(resource => {
-            // Collect events for the current resource
-            const resourceEvents = filteredEvents.filter(event => event.resourceId === resource.id);
-            return (
-              <div key={resource.id}>
-                <h3>{resource.title}</h3>
-                <div style={{ height: '100px', border: '1px solid #ccc', marginBottom: '10px' }}>
-                  {resourceEvents.map(event => (
-                    <div key={event.id}>
-                      <strong>{event.title}</strong>
-                      <p>{`${event.start.toLocaleTimeString()} - ${event.end.toLocaleTimeString()}`}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
+  const { defaultDate } = useMemo(() => ({
+    defaultDate: startDate
+  }), []);
 
-  const [events, setEvents] = useState(shit);
+  const [unscheduledEvents, setUnscheduledEvents] = useState(unscheduledSubjectClasses);
+  const [events, setEvents] = useState(scheduledEvents);
+  const [draggedEvent, setDraggedEvent] = useState();
 
-  console.log(events);
+  const handleDragStart = useCallback((event) => setDraggedEvent(event), []);
 
-  const minTime = new Date(0, 0, 0, 9, 0); // 9:00 AM
-  const maxTime = new Date(0, 0, 0, 18, 0); // 6:00 PM
+  const minTime = new Date(0, 0, 0, 6, 0); // 6:00 AM
+  const maxTime = new Date(0, 0, 0, 23, 0); // 11:00 PM
 
-
-  return (
-    <Box sx={{ height: "80vh" }}>
-      <CalendarDragAndDrop
-        selectable
-        components={{
-          event: ({ title, event }, x) => {
-            console.log(title, event, x);
-            return <Box display="flex" alignItems="center">
-              <Typography variant="caption">{title}</Typography>
-              <Tooltip title="dave">
-                <Info/>
-              </Tooltip>
-            </Box>;
-          },
-          resourceHeader: ({ resource }) => {
-            console.log(resource);
-            const { code, name } = resource;
-            return <Box padding={2}>
-              <Typography>{code}</Typography>
-              <Typography variant="caption">{name}</Typography>
-              
-            </Box>;
-          },
-        }}
-        defaultDate={defaultDate}
-        defaultView={Views.DAY}
-        events={events}
-        localizer={localizer}
-        max={maxTime}
-        min={minTime}
-        maxDate={endDate}
-        minDate={startDate}
-        resources={resources}
-        // resourceIdAccessor="id"
-        // resourceTitleAccessor="code"
-        startAccessor={"start"}
-        endAccessor={"end"}
-      />
+  return (<>
+    <Box textAlign={"center"}>
+      <Typography variant="h6">A.Y. {academicYear} - {semester}</Typography>
+      <Typography variant="subtitle1">{startDate.format('DD-MMM-YYYY')} - {endDate.format('DD-MMM-YYYY')}</Typography>
     </Box>
-  );
+    <Grid2 container spacing={2}>
+      <Grid2 size={3}>
+        <Paper sx={{ height: "70vh", padding: 2 }}>
+          <Typography variant="h6">Subject Classes</Typography>
+          <Divider sx={{ my: 2 }} />
+          <Box sx={{ height: "80%", overflowY: "auto" }}>
+            {unscheduledEvents.map((event) => (
+              <div
+                draggable
+                key={`unscheduled-event-${event.id}`}
+                onDragStart={(e) => {
+                  const { schedule, assigned_to: assignedTo } = event;
+                  if (schedule && assignedTo) {
+                    handleDragStart({ title: `${event.code} - ${event.subject.title}`, ...event });
+                  } else {
+                    e.preventDefault();
+                  }
+                }}
+                onDragEnd={() => {
+                  setDraggedEvent(null);
+                }}
+              >
+                <Card sx={{ my: 2, bgcolor: `${colorHashGenerator(`${event.code}`)}`}}>
+                  <CardContent>
+                    <Typography>{event.code} - ({event.subject.code}) {event.subject.title}</Typography>
+                    {event.schedule?.days.map((day) => <Chip
+                      key={`${event.id}-${day.day}`}
+                      label={moment.weekdaysShort()[day.day]}
+                      color="secondary"
+                      sx={{ mr: 1 }}
+                    />)}
+                    <Divider sx={{ my: 1 }} />
+                    {event.assigned_to && <Chip label={event.assigned_to.first_name} color="secondary" />}
+                  </CardContent>
+                </Card>
+              </div>
+            ))}
+          </Box>
+        </Paper>
+      </Grid2>
+      <Grid2 size={9}>
+        <Box sx={{ height: "75vh" }}>
+          <CalendarDragAndDrop
+            selectable
+            components={{
+              event: ({ title, event }) => {
+                return <Box
+                  alignItems="center"
+                  bgcolor={`${event.color ?? "inherit"}`}
+                  display="flex"
+                  onClick={() => console.log(event)}
+                  padding={1}
+                >
+                  <Typography variant="caption">{title}</Typography>
+                </Box>;
+              },
+              resourceHeader: ({ resource }) => {
+                const { code, name } = resource;
+                return <Box padding={2}>
+                  <Typography>{code}</Typography>
+                  <Typography variant="caption">{name}</Typography>
+
+                </Box>;
+              },
+            }}
+            dayPropGetter={(date) => {
+              if (draggedEvent) {
+                const { schedule } = draggedEvent ?? {};
+                const { days } = schedule ?? [];
+                const scheduledDays = days.map((day) => day.day);
+                if (!scheduledDays.includes(date.getDay())) {
+                  return {
+                    style: { display: 'none' },
+                  };
+                }
+                return {};
+              }
+            }}
+            defaultDate={defaultDate}
+            defaultView={Views.WEEK}
+            draggableAccessor="id"
+            dragFromOutsideItem={() => false}
+            events={events}
+            localizer={localizer}
+            max={maxTime}
+            min={minTime}
+            maxDate={endDate}
+            minDate={startDate}
+            onDropFromOutside={async ({ start, end, resource: resourceId }) => {
+              
+              const startDate = moment(start).startOf('day').toDate();
+              const endDate = moment(end).startOf('day').toDate();
+
+              if (moment(start).isSame(startDate) && moment(end).isSame(endDate)) {
+                setDraggedEvent(null);
+                return;
+              }
+
+              if (draggedEvent) {
+                const { schedule } = draggedEvent ?? {};
+                const { per_session_duration, days } = schedule ?? [];
+                const scheduledDays = days.map((day) => day.day);
+
+                const updatedSchedule = {
+                  per_session_duration,
+                  days: [],
+                };
+                const newEvents = [];
+                scheduledDays.forEach((day) => {
+                  const slotsByDay = slots(day);
+                  const { hour, minute, second } = {
+                    hour: moment(start).hour(),
+                    minute: moment(start).minute(),
+                    second: moment(start).second(),
+                  };
+
+                  updatedSchedule.days.push({
+                    day,
+                    start_time: {
+                      hour,
+                      minute,
+                      second
+                    },
+                    resource_id: resourceId,
+                  });
+
+
+                  slotsByDay.forEach((slot) => {
+                    const s = slot.clone().set({ hour, minute, second });
+                    const e = s.clone().add(per_session_duration, 'hours');
+                    newEvents.push({
+                      id: draggedEvent.id,
+                      title: draggedEvent.code,
+                      color: colorHashGenerator(draggedEvent.code),
+                      start: s.toDate(),
+                      end: e.toDate(),
+                      resourceId,
+                    });
+                  });
+                });
+
+                const x = await axios.patch(
+                  `api/subject-classes/${draggedEvent.id}/schedule`,
+                  {
+                    schedule: updatedSchedule,
+                  },
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                    },
+                  }
+                );
+
+                if (x.status === 200) {
+                  setEvents([...events, ...newEvents]);
+                  setUnscheduledEvents(unscheduledEvents.filter((event) => event.id !== draggedEvent.id));
+                }
+
+                setDraggedEvent(null);
+
+              }
+            }}
+            onDragOverFromOutside={(dragEvent) => {
+              // console.log('onDragOverFromOutside', dragEvent);
+            }}
+            onEventDrop={(event) => {
+              // console.log('onEventDrop', event);
+            }}
+            resources={resources}
+            startAccessor={"start"}
+            endAccessor={"end"}
+          />
+        </Box>
+      </Grid2>
+    </Grid2>
+  </>);
 };
 
 SchedulerWidget.propTypes = {
+  academicYear: PropTypes.string.isRequired,
+  semester: PropTypes.string.isRequired,
   startDate: PropTypes.isRequired,
   endDate: PropTypes.isRequired,
   resources: PropTypes.array.isRequired,

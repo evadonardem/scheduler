@@ -2,25 +2,31 @@
 
 namespace Database\Seeders;
 
+use App\Models\AcademicYearSchedule;
 use App\Models\Course;
 use App\Models\Curriculum;
 use App\Models\CurriculumSubject;
 use App\Models\Department;
 use App\Models\Room;
 use App\Models\Subject;
+use App\Models\SubjectClass;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\Sequence;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 class FakeSeeder extends Seeder
 {
     public function __construct(
+        private AcademicYearSchedule $academicYearSchedule,
         private Course $course,
         private CurriculumSubject $curriculumSubject,
         private Curriculum $curriculum,
         private Department $department,
         private Room $room,
         private Subject $subject,
+        private SubjectClass $subjectClass,
         private User $user
     ) {}
 
@@ -35,7 +41,8 @@ class FakeSeeder extends Seeder
         $this->department->newQuery()->delete();
         $this->course->newQuery()->delete();
         $this->subject->newQuery()->delete();
-        $this->command->info('Cleared departments, courses, and subjects!');
+        $this->academicYearSchedule->newQuery()->delete();
+        $this->command->info('Cleared departments, courses, subjects, and academic year schedules!');
 
         // Default User
         $defaultUser = $this->user->newQuery()
@@ -82,7 +89,12 @@ class FakeSeeder extends Seeder
 
         $this->command->line('Create fake rooms...');
         $this->room->newQuery()->delete();
-        $this->room->factory(100)->create();
+        $this->room
+            ->factory(100)
+            ->sequence(fn () => [
+                'default_owner_department_id' => Department::all()->random()->id,
+            ])
+            ->create();
         $this->command->info('Done! Fake rooms created.');
 
         $this->command->line('Create fake curriculums...');
@@ -104,5 +116,55 @@ class FakeSeeder extends Seeder
             }
         });
         $this->command->info('Done! Fake curriculums created.');
+
+        $this->command->line('Create fake academic year schedule');
+        $academicYearSchedule = $this->academicYearSchedule->factory()->create([
+            'academic_year' => '2024-2025',
+            'semester_id' => 2,
+            'start_date' => '2024-01-01',
+            'end_date' => '2024-04-30',
+        ]);
+        $this->command->info('Done! Fake academic year schedule created.');
+
+        $subjects = Subject::all();
+        $this->subjectClass->factory(100)
+            ->sequence(function (Sequence $sequence) use ($subjects) {
+                $subject = $subjects->random();
+                $user = User::whereHas('departments', function (Builder $query) use ($subject) {
+                    $relationTable = $query->getModel()->getTable();
+                    $query->where("$relationTable.id", $subject->department_id);
+                })->get()->random();
+
+                $isAssigned = fake()->boolean();
+                $isSliced = fake()->boolean();
+
+                $schedule = null;
+                if ($isSliced) {
+
+                    $days = [];
+                    foreach (fake()->randomElements(range(0, 6), 3) as $day) {
+                        $days[] = [
+                            'day' => $day,
+                            'start_time' => null,
+                            'resource_id' => null,
+                        ];
+                    }
+
+                    $schedule = [
+                        'per_session_duration' => random_int(1, 5),
+                        'days' => $days,
+                    ];
+                }
+
+                return [
+                    'code' => "$subject->code-$sequence->index",
+                    'subject_id' => $subject->id,
+                    'assigned_to_user_id' => $isAssigned ? $user->id : null,
+                    'schedule' => $schedule,
+                ];
+            })
+            ->create([
+                'academic_year_schedule_id' => $academicYearSchedule->id,
+            ]);
     }
 }

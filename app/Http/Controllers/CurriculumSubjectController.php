@@ -7,16 +7,12 @@ use App\Http\Requests\UpdateCurriculumSubjectRequest;
 use App\Models\Curriculum;
 use App\Models\CurriculumSubject;
 use App\Services\CurriculumService;
-use Illuminate\Support\Facades\DB;
 
 class CurriculumSubjectController extends Controller
 {
     public function __construct(
         protected CurriculumService $curriculumService,
-    )
-    {
-        
-    }
+    ) {}
 
     /**
      * Display a listing of the resource.
