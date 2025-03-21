@@ -121,8 +121,8 @@ class FakeSeeder extends Seeder
         $academicYearSchedule = $this->academicYearSchedule->factory()->create([
             'academic_year' => '2024-2025',
             'semester_id' => 2,
-            'start_date' => '2024-01-01',
-            'end_date' => '2024-04-30',
+            'start_date' => '2025-01-01',
+            'end_date' => '2025-04-30',
         ]);
         $this->command->info('Done! Fake academic year schedule created.');
 
@@ -140,9 +140,18 @@ class FakeSeeder extends Seeder
 
                 $schedule = null;
                 if ($isSliced) {
-
+                    
+                    $fakeDaysOptions = fake()->randomElements([
+                        [1, 3, 5],
+                        [2, 4, 6],
+                        [2, 4],
+                        [5, 6]
+                    ]);
+                
                     $days = [];
-                    foreach (fake()->randomElements(range(0, 6), 3) as $day) {
+                    
+                    foreach ($fakeDaysOptions[rand(0, count($fakeDaysOptions) - 1)] as $day) {
+                        
                         $days[] = [
                             'day' => $day,
                             'start_time' => null,
@@ -151,7 +160,7 @@ class FakeSeeder extends Seeder
                     }
 
                     $schedule = [
-                        'per_session_duration' => random_int(1, 5),
+                        'per_session_duration' => fake()->randomElement([3, 5]) / count($days),
                         'days' => $days,
                     ];
                 }
