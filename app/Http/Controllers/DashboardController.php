@@ -19,24 +19,6 @@ class DashboardController extends Controller
 
     public function index()
     {
-        $filteredDepartmentId = request()->input('filters.department');
-        $departments = $this->departmentService->getDepartments();
-
-        $academicYearSchedule = $this->academicYearScheduleService->getLatestActiveAcademicYearSchedule();
-
-        if ($filteredDepartmentId) {
-            $rooms = Room::where('default_owner_department_id', $filteredDepartmentId)->get();
-        } else {
-            $rooms = Room::all();
-        }
-
-        return Inertia::render('Dashboard/Index', [
-            'academicYearSchedule' => $academicYearSchedule
-                ? AcademicYearScheduleFullDetailsResource::make($academicYearSchedule)
-                : null,
-            'currFilters' => request()->input('filters'),
-            'departments' => DepartmentResource::collection($departments),
-            'rooms' => RoomResource::collection($rooms),
-        ]);
+        return Inertia::render('Dashboard/Index', []);
     }
 }

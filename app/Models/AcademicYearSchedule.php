@@ -12,6 +12,11 @@ class AcademicYearSchedule extends Model
     /** @use HasFactory<\Database\Factories\AcademicYearScheduleFactory> */
     use HasFactory;
 
+    protected $casts = [
+        'start_date' => 'datetime',
+        'end_date' => 'datetime',
+    ];
+
     public function semester(): BelongsTo
     {
         return $this->belongsTo(Semester::class);

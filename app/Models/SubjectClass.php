@@ -15,6 +15,11 @@ class SubjectClass extends Model
         'schedule' => 'json',
     ];
 
+    public function academicYearSchedule(): BelongsTo
+    {
+        return $this->belongsTo(AcademicYearSchedule::class);
+    }
+
     public function subject(): BelongsTo
     {
         return $this->belongsTo(Subject::class);

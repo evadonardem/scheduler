@@ -127,7 +127,7 @@ class FakeSeeder extends Seeder
         $this->command->info('Done! Fake academic year schedule created.');
 
         $subjects = Subject::all();
-        $this->subjectClass->factory(100)
+        $this->subjectClass->factory(200)
             ->sequence(function (Sequence $sequence) use ($subjects) {
                 $subject = $subjects->random();
                 $user = User::whereHas('departments', function (Builder $query) use ($subject) {
@@ -135,8 +135,8 @@ class FakeSeeder extends Seeder
                     $query->where("$relationTable.id", $subject->department_id);
                 })->get()->random();
 
-                $isAssigned = fake()->boolean();
-                $isSliced = fake()->boolean();
+                $isAssigned = true;
+                $isSliced = true;
 
                 $schedule = null;
                 if ($isSliced) {
@@ -144,6 +144,7 @@ class FakeSeeder extends Seeder
                     $fakeDaysOptions = fake()->randomElements([
                         [1, 3, 5],
                         [2, 4, 6],
+                        [1, 3],
                         [2, 4],
                         [5, 6]
                     ]);

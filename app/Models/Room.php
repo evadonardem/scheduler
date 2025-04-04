@@ -9,4 +9,9 @@ class Room extends Model
 {
     /** @use HasFactory<\Database\Factories\RoomFactory> */
     use HasFactory;
+
+    public function defaultOwnerDepartment()
+    {
+        return $this->belongsTo(Department::class, 'default_owner_department_id');
+    }
 }

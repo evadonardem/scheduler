@@ -12,9 +12,11 @@ class RoomResource extends JsonResource
         return [
             'id' => $this->id,
             'code' => $this->code,
+            'color' => '#' . substr(md5($this->code), 0, 6),
             'name' => $this->name,
             'is_lec' => $this->is_lec,
             'is_lab' => $this->is_lab,
+            'department' => DepartmentResource::make($this->defaultOwnerDepartment),
         ];
     }
 }
