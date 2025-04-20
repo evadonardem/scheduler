@@ -135,6 +135,7 @@ class FakeSeeder extends Seeder
                     $query->where("$relationTable.id", $subject->department_id);
                 })->get()->random();
 
+                $creditHours = 5;
                 $isAssigned = true;
                 $isSliced = true;
 
@@ -143,25 +144,23 @@ class FakeSeeder extends Seeder
                     
                     $fakeDaysOptions = fake()->randomElements([
                         [1, 3, 5],
-                        [2, 4, 6],
-                        [1, 3],
                         [2, 4],
                         [5, 6]
                     ]);
                 
                     $days = [];
+                    $options = $fakeDaysOptions[rand(0, count($fakeDaysOptions) - 1)];
                     
-                    foreach ($fakeDaysOptions[rand(0, count($fakeDaysOptions) - 1)] as $day) {
-                        
+                    foreach ($options as $day) {
                         $days[] = [
                             'day' => $day,
+                            'duration_in_hours' => $creditHours / count($options),
                             'start_time' => null,
                             'resource_id' => null,
                         ];
                     }
 
                     $schedule = [
-                        'per_session_duration' => fake()->randomElement([3, 5]) / count($days),
                         'days' => $days,
                     ];
                 }
@@ -169,6 +168,7 @@ class FakeSeeder extends Seeder
                 return [
                     'code' => "$subject->code-$sequence->index",
                     'subject_id' => $subject->id,
+                    'credit_hours' => $creditHours,
                     'assigned_to_user_id' => $isAssigned ? $user->id : null,
                     'schedule' => $schedule,
                 ];

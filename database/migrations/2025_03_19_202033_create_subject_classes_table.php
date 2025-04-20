@@ -25,6 +25,7 @@ return new class extends Migration
                 ->constrained()
                 ->onDelete('cascade')
                 ->onUpdate('cascade');
+            $table->float('credit_hours');
             $table->json('schedule')->nullable();
             $table->foreignIdFor(User::class, 'assigned_to_user_id')
                 ->nullable()
