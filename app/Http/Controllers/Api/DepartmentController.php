@@ -11,14 +11,15 @@ class DepartmentController extends Controller
 {
     public function __construct(
         protected DepartmentService $departmentService
-    ) {
-    }
+    ) {}
 
     /**
      * Handle the incoming request.
      */
     public function __invoke(Request $request)
     {
-        return DepartmentResource::collection($this->departmentService->getDepartments());
+        $filters = $request->input('filters', []);
+
+        return DepartmentResource::collection($this->departmentService->getDepartments($filters));
     }
 }

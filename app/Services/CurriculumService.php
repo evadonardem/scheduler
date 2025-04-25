@@ -5,12 +5,18 @@ namespace App\Services;
 use App\Models\Curriculum;
 use App\Models\CurriculumSubject;
 use App\Repositories\CurriculumRepository;
+use Illuminate\Database\Eloquent\Collection;
 
 class CurriculumService
 {
     public function __construct(
         protected CurriculumRepository $curriculumRepository,
     ) {}
+
+    public function getAllActiveByCourse(array $filters = []): Collection
+    {
+        return $this->curriculumRepository->getAll($filters);
+    }
 
     public function getSubjectsByYearLevel(Curriculum $curriculum)
     {

@@ -1,4 +1,4 @@
-import { Alert, Autocomplete, Backdrop, Badge, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Grid, MenuItem, Paper, Slider, Snackbar, Switch, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import { Alert, Autocomplete, Backdrop, Badge, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Drawer, IconButton, MenuItem, Paper, Slider, Snackbar, Stack, styled, Switch, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, TextField, Tooltip, tooltipClasses, Typography } from "@mui/material";
 import moment from "moment";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Calendar, momentLocalizer, Views } from "react-big-calendar";
@@ -7,8 +7,9 @@ import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import PropTypes from "prop-types";
 import axios from "axios";
 import { clone, find } from "lodash";
-import { Apartment, Event, Person, RoomPreferences, Subject } from "@mui/icons-material";
+import { Apartment, AvTimer, CalendarMonth, Event, Menu, Person, RoomPreferences, School, Subject } from "@mui/icons-material";
 import { DatePicker } from "@mui/x-date-pickers";
+import { Link } from "@inertiajs/react";
 
 const minTime = new Date(0, 0, 0, 7, 0); // 7:00 AM
 const maxTime = new Date(0, 0, 0, 21, 0); // 9:00 PM
@@ -20,13 +21,76 @@ moment.locale('ko', {
 });
 const localizer = momentLocalizer(moment);
 const CalendarDragAndDrop = withDragAndDrop(Calendar);
+const EllipsisText = styled(Typography)(() => ({
+  maxWidth: "150px",
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+}));
+const HtmlTooltip = styled(({ className, ...props }) => (
+  <Tooltip {...props} classes={{ popper: className }} />
+))(({ theme }) => ({
+  [`& .${tooltipClasses.tooltip}`]: {
+    backgroundColor: '#f5f5f9',
+    border: '1px solid #dadde9',
+    color: 'rgba(0, 0, 0, 0.87)',
+    fontSize: theme.typography.pxToRem(12),
+    whiteSpace: 'nowrap',
+  },
+}));
+const EventTooltip = React.memo(({ text, subjectClass }) => {
+  const {
+    code: subjectClassCode,
+    subject: {
+      code: subjectCode,
+      title: subjectTitle,
+    },
+    section: {
+      id: sectionId,
+      course: {
+        code: courseCode,
+      },
+      year_level: yearLevel,
+      is_block: isBlock,
+    },
+    schedule,
+    assigned_to: assignedTo
+  } = subjectClass;
+  const {
+    first_name: assignedToFirstName,
+    last_name: assignedToLastName,
+  } = assignedTo;
+  return (
+    <HtmlTooltip title={<React.Fragment>
+      <Typography variant="h6">{subjectClassCode}</Typography>
+      <Typography variant="subtitle2">({subjectCode}) {subjectTitle}</Typography>
+      <Divider sx={{ my: 1 }} />
+      <Stack spacing={1}>
+        <Chip icon={<School />} label={`${courseCode} ${yearLevel} (${isBlock ? "Blk." : ""} Sec. ${sectionId})`} />
+        <Chip icon={<Person />} label={`${assignedToLastName}, ${assignedToFirstName}`} />
+      </Stack>
+    </React.Fragment>}>
+      <EllipsisText variant="body2">{text}</EllipsisText>
+    </HtmlTooltip>
+  );
+});
 
-const SchedulerWidget = ({ token }) => {
+const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearScheduleId, token }) => {
+  const toAcademicYearScheduleId = window.localStorage.getItem('academic-year-schedule-id');
+  const initialAcacademicYearScheduleId = toAcademicYearScheduleId ? toAcademicYearScheduleId : defaultAcademicYearScheduleId;
+
+  // flags to check scheduler is open
+  const [isChecking, setIsChecking] = useState(true);
+  const [isSchedulerOpen, setIsSchedulerOpen] = useState(false);
+
   // calendar positioning
   const calendarRef = useRef(null);
+  const unscheduledSubjectClassesRef = useRef(null);
+
   const resourceRefs = useRef({});
   const eventRefs = useRef({});
   const calendarTimeContentScrollToRef = useRef({ left: 0, top: 0 });
+  const unscheduledSubjectClassesScrollToRef = useRef({ left: 0, top: 0 });
 
   // API check states
   const [isLoading, setIsLoading] = useState(false);
@@ -36,7 +100,7 @@ const SchedulerWidget = ({ token }) => {
   const [academicYearStart, setAcademicYearStart] = useState(null);
   const [academicYearEnd, setAcademicYearEnd] = useState(null);
   const [semesterId, setSemesterId] = useState(null);
-  const [academicYearScheduleId, setAcademicYearScheduleId] = useState(null);
+  const [academicYearScheduleId, setAcademicYearScheduleId] = useState(initialAcacademicYearScheduleId);
   const [isNotFoundAcademicYearSchedule, setIsNotFoundAcademicYearSchedule] = useState(null);
 
   const [academicYearSchedule, setAcademicYearSchedule] = useState(null);
@@ -48,6 +112,7 @@ const SchedulerWidget = ({ token }) => {
   const draggedEvent = useRef(null);
 
   const [filters, setFilters] = useState({});
+  const [openSchedulerCalendarDrawer, setOpenSchedulerCalendarDrawer] = useState(false);
 
   /**
    * Scheduler Calendar Utility Functions
@@ -60,16 +125,40 @@ const SchedulerWidget = ({ token }) => {
     );
   };
 
-  const recallCalendarTimeContentPosition = useCallback(() => {
-    const timeContentElement = calendarRef.current.querySelector('.rbc-time-content');
-    timeContentElement.scrollLeft = calendarTimeContentScrollToRef.current.left;
-    timeContentElement.scrollTop = calendarTimeContentScrollToRef.current.top;
+  const recallScrollPosition = useCallback(() => {
+    const timeContentElement = calendarRef.current?.querySelector('.rbc-time-content');
+    if (timeContentElement) {
+      timeContentElement.scrollLeft = calendarTimeContentScrollToRef.current.left;
+      timeContentElement.scrollTop = calendarTimeContentScrollToRef.current.top;
+    }
+
+    const unscheduleSubjectClassesElement = unscheduledSubjectClassesRef.current;
+    if (unscheduleSubjectClassesElement) {
+      unscheduleSubjectClassesElement.scrollLeft = unscheduledSubjectClassesScrollToRef.current.left;
+      unscheduleSubjectClassesElement.scrollTop = unscheduledSubjectClassesScrollToRef.current.top;
+    }
   }, []);
 
-  const rememberCalendarTimeContentPosition = useCallback(() => {
+  const rememberScollPosition = useCallback((params = {
+    calendarTimeContent: true,
+    unscheduledSubjectClassesContent: true
+  }) => {
     const el = calendarRef.current.querySelector('.rbc-time-content');
-    calendarTimeContentScrollToRef.current.left = el.scrollLeft;
-    calendarTimeContentScrollToRef.current.top = el.scrollTop;
+    if (el && params?.calendarTimeContent) {
+      calendarTimeContentScrollToRef.current.left = el.scrollLeft;
+      calendarTimeContentScrollToRef.current.top = el.scrollTop;
+    } else {
+      calendarTimeContentScrollToRef.current.left = 0;
+      calendarTimeContentScrollToRef.current.top = 0;
+    }
+    const unscheduleSubjectClassesElement = unscheduledSubjectClassesRef.current;
+    if (unscheduleSubjectClassesElement && params?.unscheduledSubjectClassesContent) {
+      unscheduledSubjectClassesScrollToRef.current.left = unscheduleSubjectClassesElement.scrollLeft;
+      unscheduledSubjectClassesScrollToRef.current.top = unscheduleSubjectClassesElement.scrollTop;
+    } else {
+      unscheduledSubjectClassesScrollToRef.current.left = 0;
+      unscheduledSubjectClassesScrollToRef.current.top = 0;
+    }
   }, []);
 
   const SchedulerCalendarOnEventDrop = useCallback(async ({ event, start, end }) => {
@@ -79,7 +168,7 @@ const SchedulerWidget = ({ token }) => {
     newEvent.start = start;
     newEvent.end = end;
 
-    rememberCalendarTimeContentPosition();
+    rememberScollPosition();
 
     const tempEvents = events.filter((e) => e.resourceId == event.resourceId && (
       e.id != event.id || e.id == event.id && moment(e.start) == newEventDay
@@ -123,7 +212,7 @@ const SchedulerWidget = ({ token }) => {
             event.end = new Date(event.end);
           });
           setAcademicYearSchedule(academicYearSchedule);
-          setUnscheduledEvents(unscheduledSubjectClasses);
+          setUnscheduledEvents(filters?.department ? unscheduledSubjectClasses : []);
           setEvents(scheduledEvents);
         });
       }).catch((error) => {
@@ -141,17 +230,21 @@ const SchedulerWidget = ({ token }) => {
     }
   }, [events]);
 
+  const toggleSchedulerCalendarDrawer = (newOpenSchedulerCalendarDrawer) => () => {
+    rememberScollPosition();
+    setOpenSchedulerCalendarDrawer(newOpenSchedulerCalendarDrawer);
+  };
 
   /**
    * selected event from the calendar
    */
   const [selectedEvent, setSelectedEvent] = useState(null);
   const handleShowEventDialog = useCallback((event) => {
-    rememberCalendarTimeContentPosition();
+    rememberScollPosition();
     setSelectedEvent(event);
   }, []);
   const handleCloseEventDialog = useCallback(() => {
-    rememberCalendarTimeContentPosition();
+    rememberScollPosition();
     setSelectedEvent(null);
   }, []);
 
@@ -161,8 +254,18 @@ const SchedulerWidget = ({ token }) => {
   /**
    * API calls
    */
+  const checkSchedulerIsOpen = async () => {
+    return await axios.get(
+      `api/scheduler-is-open`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      }
+    );
+  };
+
   const findScheduleByAcademicYearAndSemesterId = async (academicYear, semesterId) => {
-    setIsLoading(true);
     return await axios.get(
       `api/find-schedule/${academicYear}/${semesterId}`,
       {
@@ -174,7 +277,6 @@ const SchedulerWidget = ({ token }) => {
   };
 
   const fetchAcademicYearSchedule = async (academicYearScheduleId, filters) => {
-    setIsLoading(true);
     return await axios.get(
       `api/academic-year-schedules/${academicYearScheduleId}`,
       {
@@ -189,7 +291,6 @@ const SchedulerWidget = ({ token }) => {
   };
 
   const updateSubjectClassSchedule = async (subjectClassId, schedule) => {
-    setIsLoading(true);
     return await axios.patch(
       `api/subject-classes/${subjectClassId}/schedule`,
       {
@@ -204,7 +305,6 @@ const SchedulerWidget = ({ token }) => {
   };
 
   const fetchDepartments = async () => {
-    setIsLoading(true);
     return await axios.get(
       `api/common/departments`,
       {
@@ -219,7 +319,6 @@ const SchedulerWidget = ({ token }) => {
   };
 
   const fetchRooms = async (department) => {
-    setIsLoading(true);
     return await axios.get(
       `api/common/rooms`,
       {
@@ -233,7 +332,19 @@ const SchedulerWidget = ({ token }) => {
     );
   };
 
+  /**
+   * on load check scheduler is open
+   */
   useEffect(() => {
+    (async () => {
+      try {
+        await checkSchedulerIsOpen();
+        setIsSchedulerOpen(true);
+      } catch (_error) {
+        setIsSchedulerOpen(false);
+      }
+      setIsChecking(false);
+    })();
   }, []);
 
   useEffect(() => {
@@ -241,59 +352,66 @@ const SchedulerWidget = ({ token }) => {
       return;
     }
 
-    fetchDepartments().then((result) => {
-      const { data } = result.data;
-      setDepartments(data);
-    }).finally(() => {
-      setIsLoading(false);
-    });
+    const fetchData = async () => {
+      try {
+        const departmentsResult = await fetchDepartments();
+        const roomsResult = await fetchRooms();
+        const academicYearScheduleResult = await fetchAcademicYearSchedule(academicYearScheduleId, filters);
 
-    fetchRooms().then((result) => {
-      const { data } = result.data;
-      setRooms(data);
-    }).finally(() => {
-      setIsLoading(false);
-    });
+        const { data: departments } = departmentsResult.data;
+        const { data: rooms } = roomsResult.data;
+        const { data: academicYearSchedule, meta: { scheduledEvents, unscheduledSubjectClasses } } = academicYearScheduleResult.data;
 
-    fetchAcademicYearSchedule(academicYearScheduleId, filters).then((result) => {
-      const { data: academicYearSchedule, meta: { scheduledEvents, unscheduledSubjectClasses } } = result.data;
-      scheduledEvents.forEach((event) => {
-        event.start = new Date(event.start);
-        event.end = new Date(event.end);
-      });
-      setAcademicYearSchedule(academicYearSchedule);
-      setEvents(scheduledEvents);
-      setUnscheduledEvents(unscheduledSubjectClasses);
-    }).finally(() => {
-      setIsLoading(false);
-    });
+        setRooms(rooms);
+        setDepartments(departments);
+        setAcademicYearSchedule(academicYearSchedule);
 
+        scheduledEvents.forEach((event) => {
+          event.start = new Date(event.start);
+          event.end = new Date(event.end);
+        });
+        setEvents(scheduledEvents);
+
+        setUnscheduledEvents(filters?.department ? unscheduledSubjectClasses : []);
+        setIsLoading(false);
+      } catch (_error) {
+        window.location.reload();
+      }
+    };
+    setIsLoading(true);
+    fetchData();
   }, [academicYearScheduleId]);
 
   useEffect(() => {
-    if (!academicYearScheduleId) {
+    if (!academicYearScheduleId || Object.keys(filters).length === 0) {
       return;
     }
 
-    fetchRooms(filters?.department).then((result) => {
-      const { data } = result.data;
-      setRooms(data);
-    }).finally(() => {
-      setIsLoading(false);
-    });
+    const fetchData = async () => {
+      try {
+        const roomsResult = await fetchRooms(filters?.department);
+        const academicYearScheduleResult = await fetchAcademicYearSchedule(academicYearScheduleId, filters);
 
-    fetchAcademicYearSchedule(academicYearScheduleId, filters).then((result) => {
-      const { data: academicYearSchedule, meta: { scheduledEvents, unscheduledSubjectClasses } } = result.data;
-      scheduledEvents.forEach((event) => {
-        event.start = new Date(event.start);
-        event.end = new Date(event.end);
-      });
-      setAcademicYearSchedule(academicYearSchedule);
-      setUnscheduledEvents(unscheduledSubjectClasses);
-      setEvents(scheduledEvents);
-    }).finally(() => {
-      setIsLoading(false);
-    });
+        const { data: rooms } = roomsResult.data;
+        const { data: academicYearSchedule, meta: { scheduledEvents, unscheduledSubjectClasses } } = academicYearScheduleResult.data;
+
+        setRooms(rooms);
+        setAcademicYearSchedule(academicYearSchedule);
+
+        scheduledEvents.forEach((event) => {
+          event.start = new Date(event.start);
+          event.end = new Date(event.end);
+        });
+        setEvents(scheduledEvents);
+
+        setUnscheduledEvents(filters?.department ? unscheduledSubjectClasses : []);
+        setIsLoading(false);
+      } catch (_error) {
+        window.location.reload();
+      }
+    };
+    setIsLoading(true);
+    fetchData();
   }, [academicYearScheduleId, filters]);
 
   useEffect(() => {
@@ -308,16 +426,18 @@ const SchedulerWidget = ({ token }) => {
     if (!academicYearSchedule) {
       return;
     }
-    recallCalendarTimeContentPosition();
-  }, [academicYearSchedule, error, selectedEvent]);
+    recallScrollPosition();
+  }, [academicYearSchedule, error, events, openSchedulerCalendarDrawer, resources, selectedEvent, unscheduledEvents]);
 
-  const SchedulerFilters = () => <Paper sx={{ mb: 2, p: 2 }}>
+  const SchedulerFilters = () => <Box>
     <Autocomplete
       disablePortal
+      fullWidth
       defaultValue={filters?.department ?? null}
       getOptionLabel={(option) => `${option.code} - ${option.title}`}
       options={departments}
       onChange={(_event, value) => {
+        rememberScollPosition({ calendarTimeContent: false, unscheduledSubjectClassesContent: false });
         setFilters({
           ...filters,
           department: value,
@@ -329,10 +449,12 @@ const SchedulerWidget = ({ token }) => {
     />
     <Autocomplete
       disablePortal
+      fullWidth
       defaultValue={filters?.room ?? null}
       getOptionLabel={(option) => `${option.code} - ${option.name}`}
       options={rooms}
       onChange={(_event, value) => {
+        rememberScollPosition({ calendarTimeContent: false, unscheduledSubjectClassesContent: true });
         setFilters({
           ...filters,
           room: value,
@@ -340,7 +462,7 @@ const SchedulerWidget = ({ token }) => {
       }}
       renderInput={(params) => <TextField {...params} label="Room" />}
     />
-  </Paper>;
+  </Box>;
 
   const SubjectClassesQueue = ({ unscheduledEvents }) => (
     <Paper sx={{ height: "70vh", padding: 2 }}>
@@ -350,99 +472,139 @@ const SchedulerWidget = ({ token }) => {
         </Badge>
       </Typography>
       <Divider sx={{ my: 2 }} />
-      <Box sx={{ height: "80%", overflowY: "auto" }} onScroll={(e) => console.log('scroll subjects', e)}>
-        {unscheduledEvents.map((event) => (
-          <div
-            draggable
-            key={`unscheduled-event-${event.id}`}
-            onDragStart={(e) => {
-              const { schedule, assigned_to: assignedTo } = event;
-              if (schedule && assignedTo) {
-                handleDragStart({ title: `${event.code} - ${event.subject.title}`, ...event });
-              } else {
-                e.preventDefault();
-              }
-            }}
-            onDragEnd={() => {
-              // setDraggedEvent(null);
-            }}
-          >
-            <Card sx={{ my: 2, border: 3, borderColor: `${event.color}`, bgcolor: `${event.color}88` }}>
-              <CardContent>
-                <Typography>{event.code} - ({event.subject.code}) {event.subject.title}</Typography>
-                <Divider sx={{ my: 1 }} />
+      <Box ref={unscheduledSubjectClassesRef} sx={{ height: "80%", overflowY: "auto" }}>
+        {unscheduledEvents.map((event) => {
+          const {
+            code: subjectClassCode,
+            subject: {
+              code: subjectCode,
+              title: subjectTitle,
+            },
+            credit_hours: creditHours,
+            section: {
+              id: sectionId,
+              course: {
+                code: courseCode,
+              },
+              year_level: yearLevel,
+              is_block: isBlock,
+            },
+            assigned_to: assignedTo,
+          } = event;
+          const {
+            first_name: assignedToFirstName,
+            last_name: assignedToLastName,
+          } = assignedTo || {};
+          return (
+            <div
+              draggable
+              key={`unscheduled-event-${event.id}`}
+              onDragStart={(e) => {
+                const { schedule, assigned_to: assignedTo } = event;
+                if (schedule && assignedTo) {
+                  handleDragStart({ title: `${event.code} - ${event.subject.title}`, ...event });
+                } else {
+                  e.preventDefault();
+                }
+              }}
+              onDragEnd={() => {
+                // setDraggedEvent(null);
+              }}
+            >
+              <Card sx={{ my: 2, border: 3, borderColor: `${event.color}`, bgcolor: `${event.color}88` }}>
+                <CardContent>
+                  <Typography variant="h6">{subjectClassCode}</Typography>
+                  <Typography variant="subtitle2">({subjectCode}) {subjectTitle}</Typography>
+                  <Divider sx={{ my: 1 }} />
+                  <Stack spacing={1}>
+                    <Chip icon={<School />} label={`${courseCode} ${yearLevel} (${isBlock ? "Blk." : ""} Sec. ${sectionId})`} />
+                    {assignedTo && <Chip icon={<Person />} label={`${assignedToLastName}, ${assignedToFirstName}`} />}
+                  </Stack>
+                  <Divider sx={{ my: 1 }} />
+                  <Chip icon={<AvTimer />} label={creditHours.toFixed(2)} />
 
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  {moment.weekdaysShort().map((day, index) => (
-                    <Box key={index} sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                        <Switch
-                          checked={event.schedule?.days.some((d) => d.day === index)}
-                          onChange={(e) => {
-                            const updatedDays = e.target.checked
-                              ? [...(event.schedule?.days || []), { day: index, duration: 1 }]
-                              : event.schedule?.days.filter((d) => d.day !== index);
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    {moment.weekdaysShort().map((day, index) => (
+                      <Box key={index} sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                          <Switch
+                            checked={event.schedule?.days.some((d) => d.day === index)}
+                            onChange={(e) => {
+                              const updatedDays = e.target.checked
+                                ? [...(event.schedule?.days || []), { day: index, duration: 1 }]
+                                : event.schedule?.days.filter((d) => d.day !== index);
 
-                            const updatedEvent = {
-                              ...event,
-                              schedule: {
-                                ...event.schedule,
-                                days: updatedDays,
-                              },
-                            };
+                              const updatedEvent = {
+                                ...event,
+                                schedule: {
+                                  ...event.schedule,
+                                  days: updatedDays,
+                                },
+                              };
 
-                            // Update the state or handle the change as needed
-                            console.log("Updated Event:", updatedEvent);
-                          }}
-                          color="primary"
-                        />
-                        <Typography variant="caption" sx={{ width: 80 }}>{day}</Typography>
-                      </Box>
-                      {event.schedule?.days.some((d) => d.day === index) && (
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 2, pl: 9 }}>
-                          <Typography variant="caption">Duration:</Typography>
-                          <Box sx={{ width: 150 }}>
-                            <Slider
-                              value={
-                                event.schedule?.days.find((d) => d.day === index)?.duration || 1
-                              }
-                              onChange={(_, value) => {
-                                const updatedDays = event.schedule?.days.map((d) =>
-                                  d.day === index ? { ...d, duration: value } : d
-                                );
-
-                                const updatedEvent = {
-                                  ...event,
-                                  schedule: {
-                                    ...event.schedule,
-                                    days: updatedDays,
-                                  },
-                                };
-
-                                // Update the state or handle the change as needed
-                                console.log("Updated Event:", updatedEvent);
-                              }}
-                              step={0.5}
-                              min={1}
-                              max={12}
-                              valueLabelDisplay="auto"
-                            />
-                          </Box>
+                              // Update the state or handle the change as needed
+                              console.log("Updated Event:", updatedEvent);
+                            }}
+                            color="primary"
+                          />
+                          <Typography variant="caption" sx={{ width: 80 }}>{day}</Typography>
                         </Box>
-                      )}
-                    </Box>
-                  ))}
-                </Box>
+                        {event.schedule?.days.some((d) => d.day === index) && (
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 2, pl: 9 }}>
+                            <Typography variant="caption">Duration:</Typography>
+                            <Box sx={{ width: 150 }}>
+                              <Slider
+                                value={
+                                  event.schedule?.days.find((d) => d.day === index)?.duration || 1
+                                }
+                                onChange={(_, value) => {
+                                  const updatedDays = event.schedule?.days.map((d) =>
+                                    d.day === index ? { ...d, duration: value } : d
+                                  );
 
-                <Divider sx={{ my: 1 }} />
-                {event.assigned_to && <Chip label={event.assigned_to.first_name} color="secondary" />}
-              </CardContent>
-            </Card>
-          </div>
-        ))}
+                                  const updatedEvent = {
+                                    ...event,
+                                    schedule: {
+                                      ...event.schedule,
+                                      days: updatedDays,
+                                    },
+                                  };
+
+                                  // Update the state or handle the change as needed
+                                  console.log("Updated Event:", updatedEvent);
+                                }}
+                                step={0.5}
+                                min={1}
+                                max={12}
+                                valueLabelDisplay="auto"
+                              />
+                            </Box>
+                          </Box>
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+
+                  <Divider sx={{ my: 1 }} />
+
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })}
       </Box>
     </Paper>
   );
+
+  /**
+   * Scheduler Calendar Filters
+   */
+  const SchedulerCalendarMenu = (<Box width={"100%"}>
+    <Button onClick={toggleSchedulerCalendarDrawer(false)} variant="contained">Close</Button>
+    <Divider sx={{ my: 1 }} />
+    <SchedulerFilters />
+    {filters?.department && unscheduledEvents && <SubjectClassesQueue unscheduledEvents={unscheduledEvents} />}
+  </Box>);
 
   /**
    * Scheduler Calendar
@@ -451,7 +613,7 @@ const SchedulerWidget = ({ token }) => {
     const startDate = moment(start).startOf('day');
     const endDate = moment(end).startOf('day');
 
-    rememberCalendarTimeContentPosition();
+    rememberScollPosition();
 
     if (moment(start).isSame(startDate) && moment(end).isSame(endDate)) {
       draggedEvent.current = null;
@@ -492,7 +654,7 @@ const SchedulerWidget = ({ token }) => {
             event.end = new Date(event.end);
           });
           setAcademicYearSchedule(academicYearSchedule);
-          setUnscheduledEvents(unscheduledSubjectClasses);
+          setUnscheduledEvents(filters?.department ? unscheduledSubjectClasses : []);
           setEvents(scheduledEvents);
         });
       }).catch((error) => {
@@ -508,17 +670,14 @@ const SchedulerWidget = ({ token }) => {
   const SchedulerCalendar = React.memo(({ academicYear, semester, startDate, endDate, plottableWeek, events, resources }) => {
     const memoizedEventComponent = useCallback(
       ({
-        title, event: {
-          id: eventId,
-          instanceId,
-        },
+        title,
+        event: selectedEvent,
       }) => (
         <Box
-          ref={(el) => (eventRefs.current[`${eventId}-${instanceId}`] = el)}
+          ref={(el) => (eventRefs.current[`${selectedEvent.id}-${selectedEvent.instanceId}`] = el)}
           alignItems="center"
-        //display="flex"
         >
-          <Typography variant="caption">{title}</Typography>
+          <EventTooltip text={title} subjectClass={selectedEvent.subjectClass} />
         </Box>
       ),
       []
@@ -570,10 +729,13 @@ const SchedulerWidget = ({ token }) => {
       },
     }), []);
     return (
-      <>
+      <Box width={openSchedulerCalendarDrawer ? "78%" : "100%"}>
         <Box textAlign="center">
           <Typography variant="h6">{semester.title} A.Y. {academicYear}</Typography>
           <Typography variant="caption">{moment(startDate).format("DD MMM YYYY")} - {moment(endDate).format("DD MMM YYYY")}</Typography>
+          <IconButton onClick={toggleSchedulerCalendarDrawer(true)}>
+            <Menu />
+          </IconButton>
         </Box>
         <Box
           ref={calendarRef}
@@ -607,10 +769,11 @@ const SchedulerWidget = ({ token }) => {
             resourcePropGetter={memoizedResourcePropGetter}
             startAccessor={"start"}
             step={15}
+            tooltipAccessor={() => false}
             endAccessor={"end"}
           />
         </Box>
-      </>
+      </Box>
     );
   });
 
@@ -643,7 +806,7 @@ const SchedulerWidget = ({ token }) => {
         day.start_time = null;
         day.resource_id = null;
       });
-      rememberCalendarTimeContentPosition();
+      rememberScollPosition();
       setSelectedEvent(null);
       updateSubjectClassSchedule(subjectClassId, updatedSchedule).then(() => {
         fetchAcademicYearSchedule(academicYearScheduleId, filters).then((result) => {
@@ -653,7 +816,7 @@ const SchedulerWidget = ({ token }) => {
             event.end = new Date(event.end);
           });
           setAcademicYearSchedule(academicYearSchedule);
-          setUnscheduledEvents(unscheduledSubjectClasses);
+          setUnscheduledEvents(filters?.department ? unscheduledSubjectClasses : []);
           setEvents(scheduledEvents);
         });
       }).finally(() => {
@@ -731,7 +894,7 @@ const SchedulerWidget = ({ token }) => {
         </TableContainer>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleUnscheduleSubjectClass} color="secondary" variant="contained">Unschedule</Button>
+        {filters?.department && <Button onClick={handleUnscheduleSubjectClass} color="secondary" variant="contained">Unschedule</Button>}
         <Button onClick={handleCloseEventDialog} color="primary" variant="contained">Close</Button>
       </DialogActions>
     </Dialog>;
@@ -850,6 +1013,33 @@ const SchedulerWidget = ({ token }) => {
     </DialogActions>
   </Dialog>;
 
+  if (isChecking) {
+    return <Backdrop
+      open
+      sx={(theme) => ({ color: '#fff', zIndex: theme.zIndex.drawer + 1 })}
+    >
+      <CircularProgress color="inherit" />
+    </Backdrop>
+  }
+
+  if (!isChecking && !isSchedulerOpen) {
+    return <Box
+      alignContent="center"
+      alignItems="center"
+      textAlign="center"
+      sx={{ height: "80vh", m: "auto", width: "30%" }}
+    >
+      <CalendarMonth sx={{ fontSize: 100, m: "auto" }} color="default" />
+      <Alert variant="filled" sx={{ m: "auto" }} severity="info">No academic year schedules open for scheduling as of the moment.</Alert>
+      <Divider sx={{ my: 2 }} />
+      <Link href="/academic-year-schedules">
+        <Button variant="contained" color="primary">
+          Create Academic Year Schedule
+        </Button>
+      </Link>
+    </Box>
+  }
+
   return (<>
     <Backdrop
       sx={(theme) => ({ color: '#fff', zIndex: theme.zIndex.drawer + 1 })}
@@ -861,39 +1051,36 @@ const SchedulerWidget = ({ token }) => {
 
     {!academicYearScheduleId && <FindSchedule />}
 
-    <Grid container spacing={2}>
-      <Grid size={3}>
-        <SchedulerFilters />
-        {unscheduledEvents && filters?.department && <SubjectClassesQueue unscheduledEvents={unscheduledEvents} />}
-      </Grid>
-      <Grid size={9}>
-        {academicYearSchedule && events && resources && <>
-          <SchedulerCalendar
-            academicYear={academicYearSchedule.academic_year}
-            semester={academicYearSchedule.semester}
-            startDate={academicYearSchedule.start_date}
-            endDate={academicYearSchedule.end_date}
-            plottableWeek={academicYearSchedule.plottable_week}
-            events={events}
-            resources={resources}
-          />
-          <ShowEventDetails
-            selectedEvent={selectedEvent}
-            handleCloseEventDialog={handleCloseEventDialog}
-            resources={resources} />
-        </>}
-      </Grid>
-    </Grid>
+    {academicYearSchedule && events && resources && <>
+      <SchedulerCalendar
+        academicYear={academicYearSchedule.academic_year}
+        semester={academicYearSchedule.semester}
+        startDate={academicYearSchedule.start_date}
+        endDate={academicYearSchedule.end_date}
+        plottableWeek={academicYearSchedule.plottable_week}
+        events={events}
+        resources={resources}
+      />
+      <ShowEventDetails
+        selectedEvent={selectedEvent}
+        handleCloseEventDialog={handleCloseEventDialog}
+        resources={resources} />
+    </>}
+
+    {academicYearSchedule && <Drawer anchor="right" open={openSchedulerCalendarDrawer} slotProps={{ paper: { sx: { p: 2, width: "20%" } } }} variant="persistent">
+      {SchedulerCalendarMenu}
+    </Drawer>}
 
   </>);
 };
 
-SchedulerWidget.propTypes = {
-  academicYear: PropTypes.string.isRequired,
-  semester: PropTypes.string.isRequired,
-  startDate: PropTypes.isRequired,
-  endDate: PropTypes.isRequired,
-  resources: PropTypes.array.isRequired,
+SchedulerCalendar.propTypes = {
+  academicYearScheduleId: PropTypes.number,
+  token: PropTypes.string.isRequired,
 };
 
-export default SchedulerWidget;
+SchedulerCalendar.defaultProps = {
+  academicYearScheduleId: null,
+};
+
+export default SchedulerCalendar;

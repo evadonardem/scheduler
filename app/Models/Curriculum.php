@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Curriculum extends Model
 {
@@ -17,8 +17,15 @@ class Curriculum extends Model
         return $this->belongsTo(Course::class);
     }
 
-    public function subjects(): HasMany
+    public function subjects(): BelongsToMany
     {
-        return $this->hasMany(CurriculumSubject::class);
+        return $this->belongsToMany(Subject::class)
+            ->withPivot([
+                'id',
+                'semester_id',
+                'year_level',
+                'units_lec',
+                'units_lab',
+            ]);
     }
 }

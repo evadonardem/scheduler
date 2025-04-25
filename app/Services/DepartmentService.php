@@ -11,8 +11,14 @@ class DepartmentService
         protected DepartmentRepository $departmentRepository,
     ) {}
 
-    public function getDepartments(): Collection
+    public function getDepartments(array $filters = []): Collection
     {
-        return $this->departmentRepository->getDepartments();
+        $allowedFilters = [];
+
+        if ($filters['with_active_curricula'] ?? false) {
+            $allowedFilters['with_active_curricula'] = $filters['with_active_curricula'];
+        }
+
+        return $this->departmentRepository->getDepartments($allowedFilters);
     }
 }

@@ -4,7 +4,8 @@ namespace App\Services;
 
 use App\Models\AcademicYearSchedule;
 use App\Repositories\AcademicYearScheduleRepository;
-use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class AcademicYearScheduleService
 {
@@ -12,18 +13,29 @@ class AcademicYearScheduleService
         protected AcademicYearScheduleRepository $academicYearScheduleRepository,
     ) {}
 
+    public function createAcademicYearSchedule(array $data)
+    {
+        return $this->academicYearScheduleRepository->create($data);
+    }
+
+    public function getAllAcademicYearSchedules(?int $perPage = null): Collection|LengthAwarePaginator
+    {
+        return $this->academicYearScheduleRepository->getAll($perPage);
+    }
+
     public function getLatestActiveAcademicYearSchedule(): ?AcademicYearSchedule
     {
         return $this->academicYearScheduleRepository->getLatestActiveAcademicYearSchedule();
     }
 
-    public function getPlottableWeek(AcademicYearSchedule $academicYearSchedule): array{
+    public function getPlottableWeek(AcademicYearSchedule $academicYearSchedule): array
+    {
         $startDate = $academicYearSchedule->start_date;
         $endDate = $academicYearSchedule->end_date;
-        
+
         $currentDate = $startDate->copy();
         $firstMonday = null;
-        
+
         while ($currentDate <= $endDate) {
             if ($currentDate->isMonday()) {
                 $firstMonday = $currentDate;

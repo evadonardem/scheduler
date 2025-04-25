@@ -11,7 +11,7 @@ class StoreAcademicYearScheduleRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -22,7 +22,8 @@ class StoreAcademicYearScheduleRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'academic_year' => 'required',
+            'semester_id' => 'required',
         ];
     }
 }

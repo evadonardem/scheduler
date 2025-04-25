@@ -52,7 +52,7 @@ class HandleInertiaRequests extends Middleware
                     [
                         'label' => 'Schedules',
                         'icon' => 'calendar_month',
-                        'route' => '',
+                        'route' => 'academic-year-schedules',
                     ],
                     [
                         'label' => 'Settings',

@@ -20,9 +20,9 @@ class SubjectClass extends Model
         return $this->belongsTo(AcademicYearSchedule::class);
     }
 
-    public function subject(): BelongsTo
+    public function curriculumSubject(): BelongsTo
     {
-        return $this->belongsTo(Subject::class);
+        return $this->belongsTo(CurriculumSubject::class);
     }
 
     public function assignedTo(): BelongsTo

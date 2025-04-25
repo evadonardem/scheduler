@@ -4,32 +4,36 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreAcademicYearScheduleRequest;
 use App\Http\Requests\UpdateAcademicYearScheduleRequest;
+use App\Http\Resources\AcademicYearScheduleResource;
 use App\Models\AcademicYearSchedule;
+use App\Services\AcademicYearScheduleService;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class AcademicYearScheduleController extends Controller
 {
+    public function __construct(
+        protected AcademicYearScheduleService $academicYearScheduleService
+    ) {}
+
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $perPage = $request->input('per_page', 5);
+
+        $academicYearSchedules = $this->academicYearScheduleService->getAllAcademicYearSchedules($perPage);
+
+        return Inertia::render('AcademicYearSchedule/List', [
+            'academicYearSchedules' => AcademicYearScheduleResource::collection($academicYearSchedules),
+        ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(StoreAcademicYearScheduleRequest $request)
     {
-        //
+        $data = $request->only(['academic_year', 'start_date', 'end_date', 'semester_id']);
+        $this->academicYearScheduleService->createAcademicYearSchedule($data);
     }
 
     /**
@@ -37,7 +41,13 @@ class AcademicYearScheduleController extends Controller
      */
     public function show(AcademicYearSchedule $academicYearSchedule)
     {
-        //
+        request()->merge([
+            'fields' => ['scheduled_subject_classes'],
+        ]);
+
+        return Inertia::render('AcademicYearSchedule/Show', [
+            'academicYearSchedule' => AcademicYearScheduleResource::make($academicYearSchedule),
+        ]);
     }
 
     /**

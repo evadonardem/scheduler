@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AcademicYearScheduleController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
@@ -34,6 +35,12 @@ Route::post('/reset-password', [ResetPasswordController::class, 'store'])
 Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index']);
     Route::get('/dashboard', [DashboardController::class, 'index']);
+
+    Route::group(['prefix' => '/academic-year-schedules'], static function () {
+        Route::get('/', [AcademicYearScheduleController::class, 'index'])->name('academic-year-schedules.list');
+        Route::get('/{academicYearSchedule}', [AcademicYearScheduleController::class, 'show'])->name('academic-year-schedules.list');
+        Route::post('/', [AcademicYearScheduleController::class, 'store']);
+    });
 
     Route::get('/profile/{user}', [UserController::class, 'edit'])->name('profile.edit');
 

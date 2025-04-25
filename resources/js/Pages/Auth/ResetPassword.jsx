@@ -11,7 +11,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Typography from '@mui/material/Typography';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Send, Token } from '@mui/icons-material';
+import { Send } from '@mui/icons-material';
 
 function Copyright(props) {
   return (

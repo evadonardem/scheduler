@@ -14,6 +14,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\Sequence;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 
 class FakeSeeder extends Seeder
@@ -64,10 +65,10 @@ class FakeSeeder extends Seeder
         $departments = $this->department
             ->factory(10)
             ->has(
-                $this->course->factory(2)
+                $this->course->factory(1)
             )
             ->has(
-                $this->subject->factory(50)
+                $this->subject->factory(25)
             )
             ->create();
         $departments->each(function (Department $department) {
@@ -89,12 +90,15 @@ class FakeSeeder extends Seeder
 
         $this->command->line('Create fake rooms...');
         $this->room->newQuery()->delete();
-        $this->room
-            ->factory(100)
-            ->sequence(fn () => [
-                'default_owner_department_id' => Department::all()->random()->id,
-            ])
-            ->create();
+
+        Department::all()->each(function (Department $department) {
+            $this->room
+                ->factory(fake()->numberBetween(3, 5))
+                ->sequence(fn () => [
+                    'default_owner_department_id' => $department->id,
+                ])
+                ->create();
+        });
         $this->command->info('Done! Fake rooms created.');
 
         $this->command->line('Create fake curriculums...');
@@ -107,12 +111,27 @@ class FakeSeeder extends Seeder
             ]);
 
             foreach (range(1, 4) as $yearLevel) {
-                $this->curriculumSubject->factory()->create([
-                    'curriculum_id' => $curriculum->id,
-                    'year_level' => $yearLevel,
-                    'subject_id' => Subject::all()->random()->id,
-                    'created_by' => $defaultUser->id,
-                ]);
+                $curriculumSubjectIds = $curriculum->fresh()->subjects->pluck('id')->toArray();
+                $subjects = Subject::where('department_id', $course->department_id)
+                    ->whereNotIn('id', $curriculumSubjectIds)
+                    ->inRandomOrder()
+                    ->limit(fake()->numberBetween(3, 5))
+                    ->get();
+
+                $subjectsData = $subjects->mapWithKeys(function (Subject $subject) use ($defaultUser, $yearLevel) {
+                    return [
+                        $subject->id => [
+                            'year_level' => $yearLevel,
+                            'semester_id' => 2,
+                            'units_lec' => fake()->numberBetween(1, 5),
+                            'units_lab' => fake()->numberBetween(1, 5),
+                            'created_by' => $defaultUser->id,
+                            'created_at' => now(),
+                        ],
+                    ];
+                });
+
+                $curriculum->subjects()->attach($subjectsData);
             }
         });
         $this->command->info('Done! Fake curriculums created.');
@@ -126,55 +145,68 @@ class FakeSeeder extends Seeder
         ]);
         $this->command->info('Done! Fake academic year schedule created.');
 
-        $subjects = Subject::all();
-        $this->subjectClass->factory(200)
-            ->sequence(function (Sequence $sequence) use ($subjects) {
-                $subject = $subjects->random();
-                $user = User::whereHas('departments', function (Builder $query) use ($subject) {
-                    $relationTable = $query->getModel()->getTable();
-                    $query->where("$relationTable.id", $subject->department_id);
-                })->get()->random();
+        $this->command->line('Create fake subject classes');
+        Curriculum::all()->each(function (Curriculum $curriculum) use ($academicYearSchedule) {
+            $curriculumSubjectsByYearLevel = $curriculum->subjects()
+                ->wherePivot('semester_id', $academicYearSchedule->semester_id)
+                ->get()
+                ->groupBy('pivot.year_level');
 
-                $creditHours = 5;
-                $isAssigned = true;
-                $isSliced = true;
+            $curriculumSubjectsByYearLevel->each(function (Collection $curriculumSubjects) use ($academicYearSchedule) {
+                $curriculumSubjects->each(function (Subject $subject) use ($academicYearSchedule) {
+                    $this->subjectClass->factory(fake()->numberBetween(2, 3))
+                        ->sequence(function (Sequence $sequence) use ($subject) {
+                            $user = User::whereHas('departments', function (Builder $query) use ($subject) {
+                                $relationTable = $query->getModel()->getTable();
+                                $query->where("$relationTable.id", $subject->department_id);
+                            })->get()->random();
 
-                $schedule = null;
-                if ($isSliced) {
-                    
-                    $fakeDaysOptions = fake()->randomElements([
-                        [1, 3, 5],
-                        [2, 4],
-                        [5, 6]
-                    ]);
-                
-                    $days = [];
-                    $options = $fakeDaysOptions[rand(0, count($fakeDaysOptions) - 1)];
-                    
-                    foreach ($options as $day) {
-                        $days[] = [
-                            'day' => $day,
-                            'duration_in_hours' => $creditHours / count($options),
-                            'start_time' => null,
-                            'resource_id' => null,
-                        ];
-                    }
+                            $creditHours = $subject->pivot->units_lec + $subject->pivot->units_lab;
+                            $isAssigned = true;
+                            $isSliced = true;
 
-                    $schedule = [
-                        'days' => $days,
-                    ];
-                }
+                            $schedule = null;
+                            if ($isSliced) {
 
-                return [
-                    'code' => "$subject->code-$sequence->index",
-                    'subject_id' => $subject->id,
-                    'credit_hours' => $creditHours,
-                    'assigned_to_user_id' => $isAssigned ? $user->id : null,
-                    'schedule' => $schedule,
-                ];
-            })
-            ->create([
-                'academic_year_schedule_id' => $academicYearSchedule->id,
-            ]);
+                                $fakeDaysOptions = fake()->randomElements([
+                                    [1, 3, 5],
+                                    [2, 4, 6],
+                                    [5, 6],
+                                ]);
+
+                                $days = [];
+                                $options = $fakeDaysOptions[rand(0, count($fakeDaysOptions) - 1)];
+
+                                foreach ($options as $day) {
+                                    $days[] = [
+                                        'day' => $day,
+                                        'duration_in_hours' => $creditHours / count($options),
+                                        'start_time' => null,
+                                        'resource_id' => null,
+                                    ];
+                                }
+
+                                $schedule = [
+                                    'days' => $days,
+                                ];
+                            }
+
+                            return [
+                                'code' => "$subject->code-".fake()->numerify('###'),
+                                'curriculum_subject_id' => $subject->pivot->id,
+                                'credit_hours' => $creditHours,
+                                'section' => $sequence->index + 1,
+                                'is_block' => true,
+                                'schedule' => $schedule,
+                                'assigned_to_user_id' => $isAssigned ? $user->id : null,
+                            ];
+
+                        })
+                        ->create([
+                            'academic_year_schedule_id' => $academicYearSchedule->id,
+                        ]);
+                });
+            });
+        });
     }
 }

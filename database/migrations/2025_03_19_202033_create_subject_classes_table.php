@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\AcademicYearSchedule;
-use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -21,11 +20,15 @@ return new class extends Migration
                 ->constrained()
                 ->onDelete('cascade')
                 ->onUpdate('cascade');
-            $table->foreignIdFor(Subject::class)
-                ->constrained()
+            $table->foreignId('curriculum_subject_id')
+                ->constrained(
+                    table: 'curriculum_subject'
+                )
                 ->onDelete('cascade')
                 ->onUpdate('cascade');
             $table->float('credit_hours');
+            $table->unsignedTinyInteger('section');
+            $table->boolean('is_block')->default(false);
             $table->json('schedule')->nullable();
             $table->foreignIdFor(User::class, 'assigned_to_user_id')
                 ->nullable()

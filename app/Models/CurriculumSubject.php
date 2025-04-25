@@ -2,11 +2,18 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 
-class CurriculumSubject extends Model
+class CurriculumSubject extends Pivot
 {
-    /** @use HasFactory<\Database\Factories\CurriculumSubjectFactory> */
-    use HasFactory;
+    public function curriculum(): BelongsTo
+    {
+        return $this->belongsTo(Curriculum::class);
+    }
+
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class);
+    }
 }

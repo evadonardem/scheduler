@@ -1,15 +1,13 @@
 import MainLayout from "../../MainLayout";
-import React, { useRef, useState } from 'react';
-import { router, usePage } from '@inertiajs/react';
-import { Autocomplete, Box, TextField, Typography } from "@mui/material";
-import SchedulerWidget from "../../Components/SchedulerWidget";
-import moment from "moment";
+import React, {  } from 'react';
+import { usePage } from '@inertiajs/react';
+import SchedulerCalendar from "../../Components/Scheduler/SchedulerCalendar";
 
-const Index = () => {
+const Index = ({ default_academic_year_schedule_id: defaultAcademicYearScheduleId }) => {
     const { auth } = usePage().props;
     const { token } = auth;
 
-    return <SchedulerWidget token={token} />;
+    return <SchedulerCalendar academicYearScheduleId={defaultAcademicYearScheduleId} token={token} />;
 };
 
 Index.layout = page => <MainLayout children={page} title="Dashboard" />;

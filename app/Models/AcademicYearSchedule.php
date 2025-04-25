@@ -17,6 +17,13 @@ class AcademicYearSchedule extends Model
         'end_date' => 'datetime',
     ];
 
+    protected $fillable = [
+        'academic_year',
+        'start_date',
+        'end_date',
+        'semester_id',
+    ];
+
     public function semester(): BelongsTo
     {
         return $this->belongsTo(Semester::class);

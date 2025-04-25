@@ -3,14 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\RoomResource;
-use App\Services\RoomService;
+use App\Http\Resources\CourseResource;
+use App\Services\CourseService;
 use Illuminate\Http\Request;
 
-class RoomController extends Controller
+class CourseController extends Controller
 {
     public function __construct(
-        protected RoomService $roomService
+        protected CourseService $courseService
     ) {}
 
     /**
@@ -20,8 +20,6 @@ class RoomController extends Controller
     {
         $departmentId = $request->input('filters.department.id');
 
-        return RoomResource::collection($this->roomService->getRooms([
-            'department_id' => $departmentId,
-        ]));
+        return CourseResource::collection($this->courseService->getCourses($departmentId));
     }
 }
