@@ -1,13 +1,11 @@
 import MainLayout from "../../MainLayout";
 import { Box } from "@mui/material";
 import React, {  } from 'react';
-import { usePage } from "@inertiajs/react";
 import moment from "moment";
 import PageHeader from "../../Components/Common/PageHeader";
 import SchedulerForm from "../../Components/Scheduler/SchedulerForm";
 
 const Show = ({ academicYearSchedule }) => {
-    const { auth: { token } } = usePage().props;
     const {
         id: academicYearScheduleId,
         academic_year: academicYear,
@@ -30,7 +28,7 @@ const Show = ({ academicYearSchedule }) => {
                     },
                 ]}
             />
-            <SchedulerForm academicYearScheduleId={academicYearScheduleId} token={token} />
+            <SchedulerForm academicYearScheduleId={academicYearScheduleId} />
         </Box>
     );
 };

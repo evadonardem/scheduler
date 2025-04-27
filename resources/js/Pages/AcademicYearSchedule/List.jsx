@@ -2,12 +2,15 @@ import { DataGrid, GridActionsCellItem } from "@mui/x-data-grid";
 import MainLayout from "../../MainLayout";
 import { Alert, Box, Button, Divider, Grid, MenuItem, Paper, TextField, Typography } from "@mui/material";
 import React, { useEffect, useState } from 'react';
-import { router } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 import { DatePicker } from "@mui/x-date-pickers";
 import moment from "moment";
 import { CalendarMonth, FolderOpen } from "@mui/icons-material";
+import PageHeader from "../../Components/Common/PageHeader";
 
 const List = ({ academicYearSchedules, errors }) => {
+    const { auth: { roles: authUserRoles } } = usePage().props;
+
     const [academicYearStart, setAcademicYearStart] = useState(null);
     const [academicYearStartDate, setAcademicYearStartDate] = useState(null);
     const [academicYearEnd, setAcademicYearEnd] = useState(null);
@@ -145,130 +148,129 @@ const List = ({ academicYearSchedules, errors }) => {
         }
     }, [academicYearStart]);
 
-    return (
-        <>
-            <Grid container spacing={2}>
-                <Grid size={8}>
-                    <DataGrid
-                        columns={columns}
-                        density="compact"
-                        onPaginationModelChange={handlePaginationChange}
-                        pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
-                        paginationMode="server"
-                        paginationModel={paginationModel}
-                        rowCount={rowCount}
-                        rows={academicYearSchedules.data}
-                        disableColumnMenu
-                    />
-                </Grid>
-                <Grid size={4}>
-                    <Paper sx={{ marginBottom: 2, padding: 2 }}>
-                        <Typography variant="h6">Create New Academic Schedule</Typography>
-                        <Divider sx={{ my: 2 }} />
-                        <Grid container>
-                            <Grid size={6}>
-                                <DatePicker
-                                    label="A.Y. Start"
-                                    defaultValue={academicYearStart}
-                                    onChange={(value) => {
-                                        if (value) {
-                                            setAcademicYearStart(value);
-                                        } else {
-                                            setAcademicYearStart(null);
-                                        }
-                                    }}
-                                    renderInput={(params) => <TextField
-                                        {...params}
-                                        sx={{}} />}
-                                    sx={{ mb: 2, width: "100%" }}
-                                    views={['year']}
-                                />
-                            </Grid>
-                            <Grid size={6}>
-                                <DatePicker
-                                    key={`academic-year-start-date-${academicYearStart ?? ''}`}
-                                    label="Start Date"
-                                    disabled={!academicYearStart}
-                                    minDate={academicYearStart ? academicYearStart.startOf('year') : null}
-                                    maxDate={academicYearEnd ? academicYearEnd.endOf('year') : null}
-                                    onChange={(value) => {
-                                        if (value) {
-                                            setAcademicYearStartDate(value);
-                                        } else {
-                                            setAcademicYearStartDate(null);
-                                        }
-                                    }}
-                                    referenceDate={academicYearStart ?? null}
-                                    renderInput={(params) => <TextField
-                                        {...params}
-                                        sx={{}} />}
-                                    sx={{ mb: 2, width: "100%" }}
-                                    views={['month', 'day']}
-                                />
-                            </Grid>
-                        </Grid>
-
-                        <Grid container>
-                            <Grid size={6}>
-                                <DatePicker
-                                    key={`academic-year-end-${academicYearEnd ?? ''}`}
-                                    readOnly
-                                    label="A.Y. End"
-                                    defaultValue={academicYearEnd}
-                                    renderInput={(params) => <TextField
-                                        {...params}
-                                        sx={{}} />}
-                                    sx={{ mb: 2, width: "100%" }}
-                                    views={['year']}
-                                />
-                            </Grid>
-                            <Grid size={6}>
-                                <DatePicker
-                                    label="End Date"
-                                    key={`academic-year-end-date-${academicYearEnd ?? ''}`}
-                                    disabled={!academicYearEnd || !academicYearStartDate}
-                                    minDate={academicYearStartDate ?? null}
-                                    maxDate={academicYearEnd ? academicYearEnd.endOf('year') : null}
-                                    onChange={(value) => {
-                                        if (value) {
-                                            setAcademicYearEndDate(value);
-                                        } else {
-                                            setAcademicYearEndDate(null);
-                                        }
-                                    }}
-                                    referenceDate={academicYearStart ?? null}
-                                    renderInput={(params) => <TextField
-                                        {...params}
-                                        sx={{}} />}
-                                    sx={{ mb: 2, width: "100%" }}
-                                    views={['month', 'day']}
-                                />
-                            </Grid>
-                        </Grid>
-
-
-                        <TextField
-                            fullWidth
-                            required
-                            select
-                            defaultValue={semesterId ?? "1"}
-                            label="Semester"
-                            onChange={(e) => {
-                                setSemesterId(e.target.value);
-                            }}
-                            sx={{ mb: 2 }}
-                        >
-                            <MenuItem value="1">1st Semester</MenuItem>
-                            <MenuItem value="2">2nd Semester</MenuItem>
-                        </TextField>
-                        {errors?.academic_year && <Alert sx={{ mb: 2 }} severity="error">{errors?.academic_year}</Alert>}
-                        <Divider sx={{ my: 2 }} />
-                        <Button variant="contained" onClick={handleCreate}>Create</Button>
-                    </Paper>
-                </Grid>
+    return (<Box>
+        <PageHeader title="Academic Schedules" />
+        <Grid container spacing={2}>
+            <Grid size={['Super Admin'].some(role => authUserRoles.includes(role)) ? 8 : 12}>
+                <DataGrid
+                    columns={columns}
+                    density="compact"
+                    onPaginationModelChange={handlePaginationChange}
+                    pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
+                    paginationMode="server"
+                    paginationModel={paginationModel}
+                    rowCount={rowCount}
+                    rows={academicYearSchedules.data}
+                    disableColumnMenu
+                />
             </Grid>
-        </>
-    );
+            {['Super Admin'].some(role => authUserRoles.includes(role)) && <Grid size={4}>
+                <Paper sx={{ marginBottom: 2, padding: 2 }}>
+                    <Typography variant="h6">Create New Academic Schedule</Typography>
+                    <Divider sx={{ my: 2 }} />
+                    <Grid container>
+                        <Grid size={6}>
+                            <DatePicker
+                                label="A.Y. Start"
+                                defaultValue={academicYearStart}
+                                onChange={(value) => {
+                                    if (value) {
+                                        setAcademicYearStart(value);
+                                    } else {
+                                        setAcademicYearStart(null);
+                                    }
+                                }}
+                                renderInput={(params) => <TextField
+                                    {...params}
+                                    sx={{}} />}
+                                sx={{ mb: 2, width: "100%" }}
+                                views={['year']}
+                            />
+                        </Grid>
+                        <Grid size={6}>
+                            <DatePicker
+                                key={`academic-year-start-date-${academicYearStart ?? ''}`}
+                                label="Start Date"
+                                disabled={!academicYearStart}
+                                minDate={academicYearStart ? academicYearStart.startOf('year') : null}
+                                maxDate={academicYearEnd ? academicYearEnd.endOf('year') : null}
+                                onChange={(value) => {
+                                    if (value) {
+                                        setAcademicYearStartDate(value);
+                                    } else {
+                                        setAcademicYearStartDate(null);
+                                    }
+                                }}
+                                referenceDate={academicYearStart ?? null}
+                                renderInput={(params) => <TextField
+                                    {...params}
+                                    sx={{}} />}
+                                sx={{ mb: 2, width: "100%" }}
+                                views={['month', 'day']}
+                            />
+                        </Grid>
+                    </Grid>
+
+                    <Grid container>
+                        <Grid size={6}>
+                            <DatePicker
+                                key={`academic-year-end-${academicYearEnd ?? ''}`}
+                                readOnly
+                                label="A.Y. End"
+                                defaultValue={academicYearEnd}
+                                renderInput={(params) => <TextField
+                                    {...params}
+                                    sx={{}} />}
+                                sx={{ mb: 2, width: "100%" }}
+                                views={['year']}
+                            />
+                        </Grid>
+                        <Grid size={6}>
+                            <DatePicker
+                                label="End Date"
+                                key={`academic-year-end-date-${academicYearEnd ?? ''}`}
+                                disabled={!academicYearEnd || !academicYearStartDate}
+                                minDate={academicYearStartDate ?? null}
+                                maxDate={academicYearEnd ? academicYearEnd.endOf('year') : null}
+                                onChange={(value) => {
+                                    if (value) {
+                                        setAcademicYearEndDate(value);
+                                    } else {
+                                        setAcademicYearEndDate(null);
+                                    }
+                                }}
+                                referenceDate={academicYearStart ?? null}
+                                renderInput={(params) => <TextField
+                                    {...params}
+                                    sx={{}} />}
+                                sx={{ mb: 2, width: "100%" }}
+                                views={['month', 'day']}
+                            />
+                        </Grid>
+                    </Grid>
+
+
+                    <TextField
+                        fullWidth
+                        required
+                        select
+                        defaultValue={semesterId ?? "1"}
+                        label="Semester"
+                        onChange={(e) => {
+                            setSemesterId(e.target.value);
+                        }}
+                        sx={{ mb: 2 }}
+                    >
+                        <MenuItem value="1">1st Semester</MenuItem>
+                        <MenuItem value="2">2nd Semester</MenuItem>
+                    </TextField>
+                    {errors?.academic_year && <Alert sx={{ mb: 2 }} severity="error">{errors?.academic_year}</Alert>}
+                    <Divider sx={{ my: 2 }} />
+                    <Button variant="contained" onClick={handleCreate}>Create</Button>
+                </Paper>
+            </Grid>}
+        </Grid>
+    </Box>);
 };
 
 List.layout = page => <MainLayout children={page} title="Academic Year Schedules" />;

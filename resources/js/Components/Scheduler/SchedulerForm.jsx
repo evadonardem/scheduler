@@ -4,8 +4,11 @@ import { ArrowDownward } from "@mui/icons-material";
 import PropTypes from 'prop-types';
 import axios from 'axios';
 import { first, keyBy } from 'lodash';
+import { usePage } from '@inertiajs/react';
 
-const SchedulerForm = ({ academicYearScheduleId, token }) => {
+const SchedulerForm = ({ academicYearScheduleId }) => {
+  const { auth: { token, department: authUserDepartment, roles: authUserRoles } } = usePage().props;
+
   const [users, setUsers] = useState([]);
 
   const [departments, setDepartments] = useState([]);

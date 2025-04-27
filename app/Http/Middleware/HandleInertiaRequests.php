@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Resources\DepartmentResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
@@ -38,70 +39,90 @@ class HandleInertiaRequests extends Middleware
     {
         request()->user()?->tokens()->delete();
 
+        $user = Auth::user();
+        $department = $user ? $user->departments->first() : null;
+
         $appMenu = [];
         if (Auth::check()) {
-            $appMenu = [
+            $authUserRoles = $user->roles->pluck('name');
+
+            $dashboardMenu = [
                 [
-                    [
-                        'label' => 'Dashboard',
-                        'icon' => 'dashboard',
-                        'route' => 'dashboard',
-                    ],
+                    'label' => 'Dashboard',
+                    'icon' => 'dashboard',
+                    'route' => 'dashboard',
                 ],
+            ];
+            $schedulesMenu = [
                 [
-                    [
-                        'label' => 'Schedules',
-                        'icon' => 'calendar_month',
-                        'route' => 'academic-year-schedules',
-                    ],
-                    [
-                        'label' => 'Settings',
-                        'icon' => 'settings',
-                        'submenu' => [
-                            [
-                                'label' => 'Departments Registry',
-                                'icon' => 'apartment',
-                                'route' => 'departments',
-                            ],
-                            [
-                                'label' => 'Courses Registry',
-                                'icon' => 'school',
-                                'route' => 'courses',
-                            ],
-                            [
-                                'label' => 'Subjects Registry',
-                                'icon' => 'list_alt',
-                                'route' => 'subjects',
-                            ],
-                            [
-                                'label' => 'Curricula Registry',
-                                'icon' => 'tab',
-                                'route' => 'curricula',
-                            ],
-                            [
-                                'label' => 'Rooms Registry',
-                                'icon' => 'room_preferences',
-                                'route' => 'rooms',
-                            ],
-                            [
-                                'label' => 'Users Registry',
-                                'icon' => 'people',
-                                'route' => 'users',
-                            ],
+                    'label' => 'Schedules',
+                    'icon' => 'calendar_month',
+                    'route' => 'academic-year-schedules',
+                ],
+            ];
+
+            $curriculaMenu = [
+                [
+                    'label' => 'Curricula',
+                    'icon' => 'tab',
+                    'route' => 'curricula',
+                ],
+            ];
+            $settingsMenu = [
+                [
+                    'label' => 'Settings',
+                    'icon' => 'settings',
+                    'submenu' => [
+                        [
+                            'label' => 'Departments Registry',
+                            'icon' => 'apartment',
+                            'route' => 'departments',
+                        ],
+                        [
+                            'label' => 'Courses Registry',
+                            'icon' => 'school',
+                            'route' => 'courses',
+                        ],
+                        [
+                            'label' => 'Subjects Registry',
+                            'icon' => 'list_alt',
+                            'route' => 'subjects',
+                        ],
+                        [
+                            'label' => 'Rooms Registry',
+                            'icon' => 'room_preferences',
+                            'route' => 'rooms',
+                        ],
+                        [
+                            'label' => 'Users Registry',
+                            'icon' => 'people',
+                            'route' => 'users',
                         ],
                     ],
                 ],
             ];
+
+            $appMenu = [
+                $dashboardMenu,
+                $schedulesMenu,
+                $curriculaMenu,
+            ];
+
+            if ($authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean']))) {
+                $appMenu[] = $settingsMenu;
+            }
         }
 
         return array_merge(parent::share($request), [
             'appName' => config('app.name'),
             'appMenu' => $appMenu,
-            'auth' => Auth::user() ? [
-                'id' => Auth::user()->id,
-                'email' => Auth::user()->email,
-                'name' => Auth::user()->name,
+            'auth' => $user ? [
+                'id' => $user->id,
+                'email' => $user->email,
+                'name' => $user->name,
+                'department' => $department ? DepartmentResource::make($department)->toArray(request()) : null,
                 'roles' => Auth::user()->roles->pluck('name'),
+                'permissions' => Auth::user()->permissions,
                 'token' => request()->user()?->createToken('scheduler')->plainTextToken,
             ] : null,
             'flashMessage' => $request->session()->get('scheduler-flash-message'),

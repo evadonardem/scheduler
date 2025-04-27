@@ -62,8 +62,38 @@ class FakeSeeder extends Seeder
         $defaultUser->assignRole('Super Admin');
 
         $this->command->line('Create fake departments, courses, subjects, and users...');
+        $departmentsData = [
+            [
+                'code' => 'CABM',
+                'title' => 'College of Accountancy and Business Management',
+            ],
+            [
+                'code' => 'CIT',
+                'title' => 'College of Information Technology',
+            ],
+            [
+                'code' => 'COT',
+                'title' => 'College of Theology',
+            ],
+            [
+                'code' => 'CTELA',
+                'title' => 'College of Teacher Education and Liberal Arts',
+            ],
+            [
+                'code' => 'CCJE',
+                'title' => 'College of Criminal Justice Education',
+            ],
+            [
+                'code' => 'TTE',
+                'title' => 'Trade and Technical Education',
+            ],
+        ];
         $departments = $this->department
-            ->factory(10)
+            ->factory(count($departmentsData))
+            ->sequence(fn (Sequence $sequence) => [
+                'code' => $departmentsData[$sequence->index]['code'],
+                'title' => $departmentsData[$sequence->index]['title'],
+            ])
             ->has(
                 $this->course->factory(1)
             )

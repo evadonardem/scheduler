@@ -10,6 +10,7 @@ use App\Models\SubjectClass;
 use App\Services\AcademicYearScheduleService;
 use App\Services\RoomService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class AcademicYearScheduleController extends Controller
@@ -24,6 +25,9 @@ class AcademicYearScheduleController extends Controller
      */
     public function __invoke(Request $request, AcademicYearSchedule $academicYearSchedule)
     {
+        $authUser = Auth::user();
+        $authUserRoles = $authUser->roles->pluck('name');
+
         $filterDepartmentId = $request->input('filters.department.id');
 
         $rooms = collect();
@@ -31,7 +35,7 @@ class AcademicYearScheduleController extends Controller
             $rooms = $this->roomService->getRooms(['department_id' => $filterDepartmentId]);
         }
 
-        $scheduledSubjectClasses = SubjectClass::from('subject_classes AS sc')
+        $scheduledSubjectClassesQuery = SubjectClass::from('subject_classes AS sc')
             ->join(DB::raw("JSON_TABLE(
                 sc.schedule,
                 '\$.days[*]' COLUMNS (
@@ -45,12 +49,17 @@ class AcademicYearScheduleController extends Controller
                     $join->whereIn('jt.resource_id', $rooms->pluck('id'));
                 }
             })
-            ->where('sc.academic_year_schedule_id', $academicYearSchedule->id)
-            ->with([
-                'assignedTo.departments',
-                'curriculumSubject.curriculum.course',
-                'curriculumSubject.subject.department',
-            ])
+            ->where('sc.academic_year_schedule_id', $academicYearSchedule->id);
+
+        if (! $authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean']))) {
+            $scheduledSubjectClassesQuery->where('sc.assigned_to_user_id', $authUser->id);
+        }
+
+        $scheduledSubjectClasses = $scheduledSubjectClassesQuery->with([
+            'assignedTo.departments',
+            'curriculumSubject.curriculum.course',
+            'curriculumSubject.subject.department',
+        ])
             ->select('sc.*')
             ->groupBy('sc.id')
             ->get();
@@ -84,7 +93,7 @@ class AcademicYearScheduleController extends Controller
 
                 return [
                     'id' => $subjectClass->id,
-                    'title' => "$subjectClass->code - ($subject->code) $subject->title - $assignedToFullName",
+                    'title' => "$subjectClass->code - ($subject->code) $subject->title - $assignedToFullName ($assignedTo->email)",
                     'color' => '#'.substr(md5($subjectClass->code), 0, 6),
                     'start' => $start->format('Y-m-d H:i:s'),
                     'end' => $start->copy()->addHours($durationInHours)->format('Y-m-d H:i:s'),

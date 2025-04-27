@@ -1,4 +1,4 @@
-import { Alert, Autocomplete, Backdrop, Badge, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Drawer, IconButton, MenuItem, Paper, Slider, Snackbar, Stack, styled, Switch, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, TextField, Tooltip, tooltipClasses, Typography } from "@mui/material";
+import { Alert, Autocomplete, Backdrop, Badge, Box, Button, Card, CardActions, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Drawer, FormControlLabel, Grid, IconButton, MenuItem, Paper, Radio, RadioGroup, Snackbar, Stack, styled, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, TextField, Tooltip, tooltipClasses, Typography } from "@mui/material";
 import moment from "moment";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Calendar, momentLocalizer, Views } from "react-big-calendar";
@@ -6,10 +6,10 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import PropTypes from "prop-types";
 import axios from "axios";
-import { clone, find } from "lodash";
+import { clone, find, includes } from "lodash";
 import { Apartment, AvTimer, CalendarMonth, Event, Menu, Person, RoomPreferences, School, Subject } from "@mui/icons-material";
 import { DatePicker } from "@mui/x-date-pickers";
-import { Link } from "@inertiajs/react";
+import { Link, usePage } from "@inertiajs/react";
 
 const minTime = new Date(0, 0, 0, 7, 0); // 7:00 AM
 const maxTime = new Date(0, 0, 0, 21, 0); // 9:00 PM
@@ -27,20 +27,22 @@ const EllipsisText = styled(Typography)(() => ({
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
 }));
+const WeekdaysShortLookup = moment.weekdaysShort();
 const HtmlTooltip = styled(({ className, ...props }) => (
   <Tooltip {...props} classes={{ popper: className }} />
 ))(({ theme }) => ({
   [`& .${tooltipClasses.tooltip}`]: {
     backgroundColor: '#f5f5f9',
-    border: '1px solid #dadde9',
-    color: 'rgba(0, 0, 0, 0.87)',
     fontSize: theme.typography.pxToRem(12),
     whiteSpace: 'nowrap',
+    padding: 0,
   },
 }));
-const EventTooltip = React.memo(({ text, subjectClass }) => {
+const EventTooltip = React.memo(({ text, subjectClass, ellipsisText = true }) => {
   const {
+    color,
     code: subjectClassCode,
+    credit_hours: creditHours,
     subject: {
       code: subjectCode,
       title: subjectTitle,
@@ -59,29 +61,53 @@ const EventTooltip = React.memo(({ text, subjectClass }) => {
   const {
     first_name: assignedToFirstName,
     last_name: assignedToLastName,
-  } = assignedTo;
+  } = assignedTo ?? {};
+  const {
+    days
+  } = schedule ?? {};
   return (
-    <HtmlTooltip title={<React.Fragment>
-      <Typography variant="h6">{subjectClassCode}</Typography>
-      <Typography variant="subtitle2">({subjectCode}) {subjectTitle}</Typography>
-      <Divider sx={{ my: 1 }} />
-      <Stack spacing={1}>
-        <Chip icon={<School />} label={`${courseCode} ${yearLevel} (${isBlock ? "Blk." : ""} Sec. ${sectionId})`} />
-        <Chip icon={<Person />} label={`${assignedToLastName}, ${assignedToFirstName}`} />
-      </Stack>
+    <HtmlTooltip title={<React.Fragment> 
+      <Card sx={{ bgcolor: `${color}88`, border: `5px solid ${color}`, color: "black" }}>
+        <CardContent>
+          <Box>
+            <Typography variant="h6">{subjectClassCode}</Typography>
+            <Typography variant="subtitle2">({subjectCode}) {subjectTitle}</Typography>
+          </Box>
+          <Divider sx={{ color: {color}, my: 2 }} />
+          <Stack spacing={1}>
+            <Chip icon={<School />} label={`${courseCode} ${yearLevel} (${isBlock ? "Blk." : ""} Sec. ${sectionId})`} />
+            <Chip icon={<Person />} label={`${assignedTo ? `${assignedToLastName}, ${assignedToFirstName}` : "(Unassigned)"}`} />
+            <Chip icon={<AvTimer />} label={`Credit Hrs.: ${Number(creditHours).toFixed(2)}`} />
+          </Stack>
+          <Divider sx={{ color: {color}, my: 2 }} />
+          <Stack spacing={1}>
+            { days && days.map(({ day, duration_in_hours: durationInHours }) => <Chip icon={<Event />} label={`${WeekdaysShortLookup[day]} (${Number(durationInHours).toFixed(2)})`} />)}
+          </Stack>
+        </CardContent>
+      </Card>
     </React.Fragment>}>
-      <EllipsisText variant="body2">{text}</EllipsisText>
+      {ellipsisText ? <EllipsisText variant="body2">{text}</EllipsisText> : <Typography variant="body2">{text}</Typography>}
     </HtmlTooltip>
   );
 });
 
-const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearScheduleId, token }) => {
+const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearScheduleId }) => {
+  const { auth: { token, department: authUserDepartment, roles: authUserRoles } } = usePage().props;
+  const initialFilters = {};
+
+  if (authUserDepartment) {
+    initialFilters.department = authUserDepartment;
+  }
+
   const toAcademicYearScheduleId = window.localStorage.getItem('academic-year-schedule-id');
   const initialAcacademicYearScheduleId = toAcademicYearScheduleId ? toAcademicYearScheduleId : defaultAcademicYearScheduleId;
 
   // flags to check scheduler is open
   const [isChecking, setIsChecking] = useState(true);
   const [isSchedulerOpen, setIsSchedulerOpen] = useState(false);
+
+  // calendar view
+  const [calendarView, setCalendarView] = useState(Views.WEEK);
 
   // calendar positioning
   const calendarRef = useRef(null);
@@ -111,7 +137,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
   const [events, setEvents] = useState(null);
   const draggedEvent = useRef(null);
 
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState(initialFilters);
   const [openSchedulerCalendarDrawer, setOpenSchedulerCalendarDrawer] = useState(false);
 
   /**
@@ -355,7 +381,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
     const fetchData = async () => {
       try {
         const departmentsResult = await fetchDepartments();
-        const roomsResult = await fetchRooms();
+        const roomsResult = await fetchRooms(filters?.department);
         const academicYearScheduleResult = await fetchAcademicYearSchedule(academicYearScheduleId, filters);
 
         const { data: departments } = departmentsResult.data;
@@ -429,8 +455,9 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
     recallScrollPosition();
   }, [academicYearSchedule, error, events, openSchedulerCalendarDrawer, resources, selectedEvent, unscheduledEvents]);
 
-  const SchedulerFilters = () => <Box>
+  const SchedulerFilters = () => <Box sx={{ mb: 2 }}>
     <Autocomplete
+      key={`department-${filters?.department?.id ?? 0}`}
       disablePortal
       fullWidth
       defaultValue={filters?.department ?? null}
@@ -444,10 +471,12 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
           room: null,
         });
       }}
+      readOnly={!includes('Super Admin', authUserRoles)}
       renderInput={(params) => <TextField {...params} label="Department" />}
       sx={{ mb: 2 }}
     />
-    <Autocomplete
+    {calendarView === Views.WEEK && <Autocomplete
+      key={`room-${filters?.department?.id ?? 0}`}
       disablePortal
       fullWidth
       defaultValue={filters?.room ?? null}
@@ -461,7 +490,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
         });
       }}
       renderInput={(params) => <TextField {...params} label="Room" />}
-    />
+    />}
   </Box>;
 
   const SubjectClassesQueue = ({ unscheduledEvents }) => (
@@ -472,9 +501,10 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
         </Badge>
       </Typography>
       <Divider sx={{ my: 2 }} />
-      <Box ref={unscheduledSubjectClassesRef} sx={{ height: "80%", overflowY: "auto" }}>
+      <Box ref={unscheduledSubjectClassesRef} sx={{ height: "90%", overflowY: "auto" }}>
         {unscheduledEvents.map((event) => {
           const {
+            schedule,
             code: subjectClassCode,
             subject: {
               code: subjectCode,
@@ -491,10 +521,6 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
             },
             assigned_to: assignedTo,
           } = event;
-          const {
-            first_name: assignedToFirstName,
-            last_name: assignedToLastName,
-          } = assignedTo || {};
           return (
             <div
               draggable
@@ -509,85 +535,17 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
               }}
               onDragEnd={() => {
                 // setDraggedEvent(null);
-              }}
-            >
-              <Card sx={{ my: 2, border: 3, borderColor: `${event.color}`, bgcolor: `${event.color}88` }}>
-                <CardContent>
-                  <Typography variant="h6">{subjectClassCode}</Typography>
-                  <Typography variant="subtitle2">({subjectCode}) {subjectTitle}</Typography>
-                  <Divider sx={{ my: 1 }} />
-                  <Stack spacing={1}>
-                    <Chip icon={<School />} label={`${courseCode} ${yearLevel} (${isBlock ? "Blk." : ""} Sec. ${sectionId})`} />
-                    {assignedTo && <Chip icon={<Person />} label={`${assignedToLastName}, ${assignedToFirstName}`} />}
-                  </Stack>
-                  <Divider sx={{ my: 1 }} />
-                  <Chip icon={<AvTimer />} label={creditHours.toFixed(2)} />
-
-                  <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    {moment.weekdaysShort().map((day, index) => (
-                      <Box key={index} sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                          <Switch
-                            checked={event.schedule?.days.some((d) => d.day === index)}
-                            onChange={(e) => {
-                              const updatedDays = e.target.checked
-                                ? [...(event.schedule?.days || []), { day: index, duration: 1 }]
-                                : event.schedule?.days.filter((d) => d.day !== index);
-
-                              const updatedEvent = {
-                                ...event,
-                                schedule: {
-                                  ...event.schedule,
-                                  days: updatedDays,
-                                },
-                              };
-
-                              // Update the state or handle the change as needed
-                              console.log("Updated Event:", updatedEvent);
-                            }}
-                            color="primary"
-                          />
-                          <Typography variant="caption" sx={{ width: 80 }}>{day}</Typography>
-                        </Box>
-                        {event.schedule?.days.some((d) => d.day === index) && (
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 2, pl: 9 }}>
-                            <Typography variant="caption">Duration:</Typography>
-                            <Box sx={{ width: 150 }}>
-                              <Slider
-                                value={
-                                  event.schedule?.days.find((d) => d.day === index)?.duration || 1
-                                }
-                                onChange={(_, value) => {
-                                  const updatedDays = event.schedule?.days.map((d) =>
-                                    d.day === index ? { ...d, duration: value } : d
-                                  );
-
-                                  const updatedEvent = {
-                                    ...event,
-                                    schedule: {
-                                      ...event.schedule,
-                                      days: updatedDays,
-                                    },
-                                  };
-
-                                  // Update the state or handle the change as needed
-                                  console.log("Updated Event:", updatedEvent);
-                                }}
-                                step={0.5}
-                                min={1}
-                                max={12}
-                                valueLabelDisplay="auto"
-                              />
-                            </Box>
-                          </Box>
-                        )}
-                      </Box>
-                    ))}
-                  </Box>
-
-                  <Divider sx={{ my: 1 }} />
-
+                }}
+              >
+              <Card sx={{ my: 1, border: 3, borderColor: `${event.color}`, bgcolor: `${event.color}88` }}>
+                <CardContent sx={{ mb: 0, pb: 0 }}>
+                  <EventTooltip text={`${subjectClassCode} - (${subjectCode}) ${subjectTitle}`} subjectClass={event} ellipsisText={false} />
                 </CardContent>
+                <CardActions>
+                  <Alert severity={schedule && assignedTo ? "success" : "warning"} variant="filled" sx={{p: 1, pt: 0, pb: 0 }}>
+                    {schedule && assignedTo ? "Schedule Ready" : "Not Ready"}
+                  </Alert>
+                </CardActions>
               </Card>
             </div>
           );
@@ -600,10 +558,16 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
    * Scheduler Calendar Filters
    */
   const SchedulerCalendarMenu = (<Box width={"100%"}>
-    <Button onClick={toggleSchedulerCalendarDrawer(false)} variant="contained">Close</Button>
+    <Button onClick={toggleSchedulerCalendarDrawer(!openSchedulerCalendarDrawer)} variant="contained">Close</Button>
     <Divider sx={{ my: 1 }} />
     <SchedulerFilters />
-    {filters?.department && unscheduledEvents && <SubjectClassesQueue unscheduledEvents={unscheduledEvents} />}
+    {
+      ['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) &&
+      calendarView === Views.WEEK &&
+      filters?.department &&
+      unscheduledEvents &&
+      <SubjectClassesQueue unscheduledEvents={unscheduledEvents} />
+    }
   </Box>);
 
   /**
@@ -705,14 +669,19 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
       []
     );
     const memoizedEventPropGetter = useCallback(
-      (event) => ({
-        style: {
-          border: `3px solid ${event.color ?? "inherit"}`,
-          backgroundColor: event.color ? `${event.color}88` : "inherit",
-          color: "black",
-        },
-        tabIndex: 0,
-      }),
+      (event) => {
+        if (calendarView === Views.AGENDA) {
+          return {};
+        }
+        return {
+          style: {
+            border: `3px solid ${event.color ?? "inherit"}`,
+            backgroundColor: event.color ? `${event.color}88` : "inherit",
+            color: "black",
+          },
+          tabIndex: 0,
+        };
+      },
       []
     );
     const memoizedResourcePropGetter = useCallback(
@@ -728,53 +697,68 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
         event: memoizedEventComponent,
       },
     }), []);
-    return (
-      <Box width={openSchedulerCalendarDrawer ? "78%" : "100%"}>
-        <Box textAlign="center">
-          <Typography variant="h6">{semester.title} A.Y. {academicYear}</Typography>
-          <Typography variant="caption">{moment(startDate).format("DD MMM YYYY")} - {moment(endDate).format("DD MMM YYYY")}</Typography>
-          <IconButton onClick={toggleSchedulerCalendarDrawer(true)}>
-            <Menu />
-          </IconButton>
-        </Box>
-        <Box
-          ref={calendarRef}
-          onDragOver={(e) => e.preventDefault()}
-          sx={{ height: "70vh", overflow: "auto" }}
-        >
-          <CalendarDragAndDrop
-            components={components}
-            defaultDate={plottableWeek.start}
-            defaultView={Views.WEEK}
-            draggableAccessor={() => filters?.department ? "id" : false}
-            dragFromOutsideItem={() => false}
-            eventPropGetter={memoizedEventPropGetter}
-            events={events}
-            formats={{
-              dayFormat: "ddd",
-            }}
-            localizer={localizer}
-            max={maxTime}
-            min={minTime}
-            onDoubleClickEvent={useCallback(
-              (event) => handleShowEventDialog(event),
-              [academicYearSchedule.subject_classes]
-            )}
-            onDropFromOutside={SchedulerCalendarOnDropFromOutside}
-            onDragOverFromOutside={useCallback(() => {
-              console.log('check being drag over from outside...');
-            }, [])}
-            onEventDrop={SchedulerCalendarOnEventDrop}
-            resources={resources}
-            resourcePropGetter={memoizedResourcePropGetter}
-            startAccessor={"start"}
-            step={15}
-            tooltipAccessor={() => false}
-            endAccessor={"end"}
-          />
-        </Box>
+    const handleChangeCalendarView = useCallback((e) => {
+      setCalendarView(e.target.value);
+    }, []);
+    return (<Box width={openSchedulerCalendarDrawer ? "78%" : "100%"}>
+      <Box>
+        <Grid container justifyContent="space-between" alignItems="center">
+          <Grid item>
+            <Box>
+              <Typography variant="h6">{semester.title} A.Y. {academicYear}</Typography>
+              <Typography variant="subtitle2">{moment(startDate).format("DD MMM YYYY")} - {moment(endDate).format("DD MMM YYYY")}</Typography>
+            </Box>
+          </Grid>
+          <Grid item>
+            <Box display="flex" alignItems="center" justifyContent="flex-end">
+              <RadioGroup row value={calendarView} onChange={handleChangeCalendarView}>
+                <FormControlLabel value={Views.WEEK} control={<Radio />} label="Resource View" />
+                <FormControlLabel value={Views.AGENDA} control={<Radio />} label="Summary View" />
+              </RadioGroup>
+              <IconButton onClick={toggleSchedulerCalendarDrawer(!openSchedulerCalendarDrawer)}>
+                <Menu />
+              </IconButton>
+            </Box>
+          </Grid>
+        </Grid>
       </Box>
-    );
+      <Box
+      ref={calendarRef}
+      onDragOver={(e) => e.preventDefault()}
+      sx={{ height: "70vh", overflow: "auto" }}
+      >
+      <CalendarDragAndDrop
+        components={components}
+        defaultDate={plottableWeek.start}
+        defaultView={calendarView}
+        draggableAccessor={() => filters?.department ? "id" : false}
+        dragFromOutsideItem={() => false}
+        eventPropGetter={memoizedEventPropGetter}
+        events={events}
+        formats={{
+        dayFormat: "ddd",
+        }}
+        localizer={localizer}
+        max={maxTime}
+        min={minTime}
+        onDoubleClickEvent={useCallback(
+        (event) => handleShowEventDialog(event),
+        [academicYearSchedule.subject_classes]
+        )}
+        onDropFromOutside={SchedulerCalendarOnDropFromOutside}
+        onDragOverFromOutside={useCallback(() => {
+        console.log('check being drag over from outside...');
+        }, [])}
+        onEventDrop={['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) ? SchedulerCalendarOnEventDrop : false}
+        resources={resources}
+        resourcePropGetter={memoizedResourcePropGetter}
+        startAccessor={"start"}
+        step={15}
+        tooltipAccessor={() => false}
+        endAccessor={"end"}
+      />
+      </Box>
+    </Box>);
   });
 
   /**
@@ -894,7 +878,11 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
         </TableContainer>
       </DialogContent>
       <DialogActions>
-        {filters?.department && <Button onClick={handleUnscheduleSubjectClass} color="secondary" variant="contained">Unschedule</Button>}
+        {
+          ['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) &&
+          filters?.department &&
+          <Button onClick={handleUnscheduleSubjectClass} color="secondary" variant="contained">Unschedule</Button>
+        }
         <Button onClick={handleCloseEventDialog} color="primary" variant="contained">Close</Button>
       </DialogActions>
     </Dialog>;
@@ -1076,7 +1064,6 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
 
 SchedulerCalendar.propTypes = {
   academicYearScheduleId: PropTypes.number,
-  token: PropTypes.string.isRequired,
 };
 
 SchedulerCalendar.defaultProps = {
