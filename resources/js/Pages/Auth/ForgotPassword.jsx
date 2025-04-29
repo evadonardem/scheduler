@@ -8,7 +8,7 @@ import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import Typography from '@mui/material/Typography';
+import Typography from '@mui/material/Typography'; ``
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { Head, router, usePage } from '@inertiajs/react';
 import { Send } from '@mui/icons-material';
@@ -29,7 +29,17 @@ function Copyright(props) {
 
 // TODO remove, this demo shouldn't need to reset the theme.
 
-const defaultTheme = createTheme();
+const defaultTheme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#960e21',
+    },
+    secondary: {
+      main: '#f50057',
+    },
+  },
+});
 
 const ForgotPassword = ({ errors, flashMessage }) => {
   const { appName } = usePage().props;
@@ -73,20 +83,17 @@ const ForgotPassword = ({ errors, flashMessage }) => {
       <Grid container component="main" sx={{ height: '100vh' }}>
         <CssBaseline />
         <Grid
-          item
-          xs={false}
-          sm={4}
-          md={7}
+          size={{ xs: 12, sm: 4, md: 7 }}
           sx={{
             backgroundImage: 'url(images/logo-kcp-emblem.png)',
             backgroundRepeat: 'no-repeat',
             backgroundColor: (t) =>
               t.palette.mode === 'light' ? t.palette.grey[50] : t.palette.grey[900],
-            backgroundSize: 'contain',
+            backgroundSize: '33%',
             backgroundPosition: 'center',
           }}
         />
-        <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
+        <Grid size={{ xs: 12, sm: 8, md: 5 }} component={Paper} elevation={6} square>
           <Box
             sx={{
               my: 8,

@@ -32,6 +32,7 @@ return new class extends Migration
                 ->onDelete('cascade');
             $table->unsignedTinyInteger('units_lec');
             $table->unsignedTinyInteger('units_lab');
+            $table->float('credit_hours');
             $table->foreignIdFor(User::class, 'created_by')
                 ->constrained()
                 ->onUpdate('cascade')

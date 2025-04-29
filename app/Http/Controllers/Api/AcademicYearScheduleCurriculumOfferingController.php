@@ -11,6 +11,7 @@ use App\Models\SubjectClass;
 use App\Services\AcademicYearScheduleService;
 use App\Services\RoomService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AcademicYearScheduleCurriculumOfferingController extends Controller
 {
@@ -24,13 +25,21 @@ class AcademicYearScheduleCurriculumOfferingController extends Controller
         AcademicYearSchedule $academicYearSchedule,
         Curriculum $curriculum
     ) {
-        $subjectClasses = $academicYearSchedule
+        $authUser = Auth::user();
+        $authUserRoles = $authUser->roles->pluck('name');
+
+        $subjectClassesQuery = $academicYearSchedule
             ->subjectClasses()
             ->where('academic_year_schedule_id', $academicYearSchedule->id)
             ->whereHas('curriculumSubject', function ($query) use ($curriculum) {
                 $query->where('curriculum_id', $curriculum->id);
-            })
-            ->get();
+            });
+
+        if (! $authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean']))) {
+            $subjectClassesQuery->where('assigned_to_user_id', $authUser->id);
+        }
+
+        $subjectClasses = $subjectClassesQuery->get();
 
         $groupByYearLevel = $subjectClasses->groupBy('curriculumSubject.year_level')->values();
         $groupByYearLevel = $groupByYearLevel->map(function ($subjectClassesByYearLevel) {
@@ -101,6 +110,29 @@ class AcademicYearScheduleCurriculumOfferingController extends Controller
         })->toArray();
 
         SubjectClass::insert($newSubjectClasses);
+
+        return response()->noContent();
+    }
+
+    public function destroy(
+        Request $request,
+        AcademicYearSchedule $academicYearSchedule,
+        Curriculum $curriculum,
+        SubjectClass $subjectClass
+    ) {
+        $subjectClass->delete();
+        $yearLevel = $request->input('year_level');
+        $section = $request->input('section');
+
+        $academicYearSchedule
+            ->subjectClasses()
+            ->where('academic_year_schedule_id', $academicYearSchedule->id)
+            ->whereHas('curriculumSubject', function ($query) use ($curriculum, $yearLevel) {
+                $query->where('curriculum_id', $curriculum->id);
+                $query->where('year_level', $yearLevel);
+            })
+            ->where('section', $section)
+            ->delete();
 
         return response()->noContent();
     }

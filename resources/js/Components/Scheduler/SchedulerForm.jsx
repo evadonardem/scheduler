@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Accordion, AccordionDetails, AccordionSummary, Autocomplete, Backdrop, Box, Button, CircularProgress, Divider, Grid, Paper, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, TextField, Typography } from "@mui/material";
-import { ArrowDownward } from "@mui/icons-material";
+import { Accordion, AccordionDetails, AccordionSummary, Autocomplete, Backdrop, Badge, Box, Button, Chip, CircularProgress, Divider, Grid, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import { ArrowDownward, Class, Delete, KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
 import PropTypes from 'prop-types';
 import axios from 'axios';
-import { first, keyBy } from 'lodash';
+import { find, first, includes, keyBy } from 'lodash';
 import { usePage } from '@inertiajs/react';
 
 const SchedulerForm = ({ academicYearScheduleId }) => {
@@ -22,7 +22,9 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
   const [curriculumSubjects, setCurriculumSubjects] = useState(null);
   const [curriculumOfferings, setCurriculumOfferings] = useState(null);
 
-  const [isCreatingBlockSection, setIsCreatingBlockSection] = useState(false);
+  const [processingBlockSection, setProcessingBlockSection] = useState(false);
+
+  const [openSubjectClassSchedule, setOpenSubjectClassSchedule] = useState(false);
 
   /**
    * API Calls
@@ -117,6 +119,22 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
     );
   };
 
+  const deleteCurriculumOfferings = async (curriculum, yearLevel, section) => {
+    return await axios.delete(
+      `/api/academic-year-schedules/${academicYearScheduleId}/course-curricula/${curriculum.id}/offerings`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        },
+        data: {
+          year_level: yearLevel,
+          section,
+        },
+      }
+    );
+  };
+
   const updateSubjectClassAssignee = async (user, subjectClass) => {
     return await axios.patch(
       `/api/subject-classes/${subjectClass?.id ?? 0}`,
@@ -143,7 +161,12 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
 
   const handleCreateBlockSection = useCallback(async (curriculum, yearLevel) => {
     await createCurriculumOfferings(curriculum, yearLevel);
-    setIsCreatingBlockSection(false);
+    setProcessingBlockSection(false);
+  }, []);
+
+  const handleDeleteBlockSection = useCallback(async (curriculum, yearLevel, section) => {
+    await deleteCurriculumOfferings(curriculum, yearLevel, section);
+    setProcessingBlockSection(false);
   }, []);
 
   useEffect(() => {
@@ -151,7 +174,9 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
       const { data: users } = (await fetchUsers()).data;
 
       const { data: departments } = (await fetchDepartments()).data;
-      const defaultDepartment = first(departments);
+      const defaultDepartment = authUserDepartment
+        ? find(departments, { id: authUserDepartment.id }) || first(departments)
+        : first(departments);
 
       const { data: courses } = (await fetchCourses(defaultDepartment)).data;
       const defaultCourse = first(courses);
@@ -211,7 +236,7 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
   }, [selectedCourse]);
 
   useEffect(() => {
-    if (!selectedDepartment || !selectedCourse || !selectedCurriculum || isCreatingBlockSection) {
+    if (!selectedDepartment || !selectedCourse || !selectedCurriculum || processingBlockSection) {
       return;
     }
 
@@ -224,79 +249,88 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
       setCurriculumOfferings(curriculumOfferingsKeyByYearLevel);
     })();
 
-  }, [selectedDepartment, selectedCourse, selectedCurriculum, isCreatingBlockSection]);
+  }, [selectedDepartment, selectedCourse, selectedCurriculum, processingBlockSection]);
 
   return (<Box>
-    {isCreatingBlockSection && <Backdrop
+    {processingBlockSection && <Backdrop
       open
       sx={(theme) => ({ color: '#fff', zIndex: theme.zIndex.drawer + 1 })}
     >
       <CircularProgress color="inherit" />
     </Backdrop>}
-    <Grid container spacing={2}>
-      <Grid size={3}>
-        <Autocomplete
-          key={`department-${selectedDepartment?.id ?? 0}`}
-          disableClearable
-          disablePortal
-          fullWidth
-          defaultValue={selectedDepartment ?? null}
-          getOptionLabel={(option) => `${option.code} - ${option.title}`}
-          options={departments}
-          onChange={(_event, value) => {
-            setSelectedDepartment(value);
-          }}
-          renderInput={(params) => <TextField {...params} label="Department" />}
-          sx={{ mb: 2 }}
-        />
-        <Autocomplete
-          key={`course-${selectedCourse?.id ?? 0}`}
-          disabled={!selectedDepartment}
-          disableClearable
-          disablePortal
-          fullWidth
-          defaultValue={selectedCourse ?? null}
-          getOptionLabel={(option) => `${option.code} - ${option.title}`}
-          options={courses}
-          onChange={(_event, value) => {
-            setSelectedCourse(value);
-          }}
-          renderInput={(params) => <TextField {...params} label="Course" />}
-          sx={{ mb: 2 }}
-        />
-        <Autocomplete
-          key={`curriculum-${selectedCurriculum?.id ?? 0}`}
-          disabled={!selectedCourse}
-          disablePortal
-          fullWidth
-          defaultValue={selectedCurriculum ?? null}
-          getOptionLabel={(option) => `${option.code} - ${option.description}`}
-          options={curricula}
-          onChange={(_event, value) => {
-            setSelectedCurriculum(value);
-          }}
-          renderInput={(params) => <TextField {...params} label="Curriculum" />}
-          sx={{ mb: 2 }}
-        />
-      </Grid>
-      <Grid size={9}>
-        {curriculumSubjects && <Box marginBottom={4}>
-          <Typography variant="h6">Opened Subject Classes</Typography>
-          <Divider sx={{ mb: 2 }} />
-          {curriculumSubjects.map((block) => {
-            const {
-              subjects,
-              year_level: yearLevel,
-            } = block;
+    <Box>
+      <Autocomplete
+        key={`department-${selectedDepartment?.id ?? 0}`}
+        disableClearable
+        disablePortal
+        fullWidth
+        defaultValue={selectedDepartment ?? null}
+        getOptionLabel={(option) => `${option.code} - ${option.title}`}
+        options={departments}
+        onChange={(_event, value) => {
+          setSelectedDepartment(value);
+        }}
+        readOnly={!includes('Super Admin', authUserRoles)}
+        renderInput={(params) => <TextField {...params} label="Department" />}
+        sx={{ mb: 2 }}
+      />
+      <Autocomplete
+        key={`course-${selectedCourse?.id ?? 0}`}
+        disabled={!selectedDepartment}
+        disableClearable
+        disablePortal
+        fullWidth
+        defaultValue={selectedCourse ?? null}
+        getOptionLabel={(option) => `${option.code} - ${option.title}`}
+        options={courses}
+        onChange={(_event, value) => {
+          setSelectedCourse(value);
+        }}
+        renderInput={(params) => <TextField {...params} label="Course" />}
+        sx={{ mb: 2 }}
+      />
+      <Autocomplete
+        key={`curriculum-${selectedCurriculum?.id ?? 0}`}
+        disabled={!selectedCourse}
+        disableClearable
+        disablePortal
+        fullWidth
+        defaultValue={selectedCurriculum ?? null}
+        getOptionLabel={(option) => `${option.code} - ${option.description}`}
+        options={curricula}
+        onChange={(_event, value) => {
+          setSelectedCurriculum(value);
+        }}
+        renderInput={(params) => <TextField {...params} label="Curriculum" />}
+        sx={{ mb: 2 }}
+      />
+    </Box>
+    {curriculumSubjects && <Box marginBottom={4}>
+      <Typography variant="h6">Opened Subject Classes</Typography>
+      <Divider sx={{ mb: 2 }} />
+      {curriculumSubjects.map((block) => {
+        const {
+          subjects,
+          year_level: yearLevel,
+        } = block;
 
-            return <Box key={`block-${yearLevel}`} marginBottom={2}>
-              <Accordion>
-                <AccordionSummary
-                  expandIcon={<ArrowDownward />}
-                >
-                  <Typography component="span">Year Level: {yearLevel}</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
+        const sectionsCount = curriculumOfferings[yearLevel]?.sections?.length ?? 0;
+
+        return <Box key={`block-${selectedCurriculum?.id ?? 0}-${yearLevel}`} marginBottom={2}>
+          <Accordion>
+            <AccordionSummary
+              expandIcon={<ArrowDownward />}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, width: '100%' }}>
+                <Typography component="span">Year Level: {yearLevel}</Typography>
+                <Badge badgeContent={`${sectionsCount}`} color="primary" sx={{ mr: 2 }}>
+                  <Class color="action" />
+                </Badge>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Grid container spacing={2}>
+                <Grid size={4}>
                   <TableContainer component={Paper} sx={{ mb: 2 }}>
                     <Table size="small">
                       <TableHead>
@@ -305,6 +339,7 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                           <TableCell>Title</TableCell>
                           <TableCell>Units Lec</TableCell>
                           <TableCell>Units Lab</TableCell>
+                          <TableCell>Credit Hrs.</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -316,6 +351,7 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                               id: curriculumSubjectId,
                               units_lec: unitsLec,
                               units_lab: unitsLab,
+                              credit_hours: creditHours,
                             }
                           } = subject;
                           return <TableRow key={`curriculum-subject-${curriculumSubjectId}`}>
@@ -323,22 +359,25 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                             <TableCell>{subjectTitle}</TableCell>
                             <TableCell>{unitsLec}</TableCell>
                             <TableCell>{unitsLab}</TableCell>
+                            <TableCell>{Number(creditHours).toFixed(2)}</TableCell>
                           </TableRow>;
                         })}
                       </TableBody>
-                      <TableFooter>
+                      {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) && <TableFooter>
                         <TableRow>
-                          <TableCell colSpan={4} align="center">
-                            <Button variant="contained" onClick={() => {
-                              setIsCreatingBlockSection(true);
+                          <TableCell colSpan={5} align="center">
+                            <Button fullWidth variant="contained" onClick={() => {
+                              setProcessingBlockSection(true);
                               handleCreateBlockSection(selectedCurriculum, yearLevel);
                             }}>Create Block Section</Button>
                           </TableCell>
                         </TableRow>
-                      </TableFooter>
+                      </TableFooter>}
                     </Table>
                   </TableContainer>
-                  {!!curriculumOfferings[yearLevel] && curriculumOfferings[yearLevel].sections.map((section) => {
+                </Grid>
+                <Grid size={8}>
+                  {!!curriculumOfferings[yearLevel] && curriculumOfferings[yearLevel].sections.map((section, index) => {
                     const {
                       id: sectionId,
                       subject_classes: {
@@ -346,12 +385,23 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                         unscheduled,
                       },
                     } = section;
-                    return <Box key={`year-level-${yearLevel}-section-${sectionId}`}>
+                    return <Box key={`year-level-${yearLevel}-section-${sectionId}`} marginBottom={2}>
                       <Accordion>
                         <AccordionSummary
                           expandIcon={<ArrowDownward />}
                         >
-                          <Typography component="span">Blk. Sec. {sectionId}</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, width: '100%' }}>
+                            <Typography component="span">Blk. Sec. {sectionId}</Typography>
+                            {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) &&
+                              index === curriculumOfferings[yearLevel].sections.length - 1 &&
+                              <IconButton color="primary" onClick={(e) => {
+                                e.stopPropagation();
+                                setProcessingBlockSection(true);
+                                handleDeleteBlockSection(selectedCurriculum, yearLevel, sectionId);
+                              }}>
+                                <Delete />
+                              </IconButton>}
+                          </Box>
                         </AccordionSummary>
                         <AccordionDetails>
                           <TableContainer component={Paper} sx={{ mb: 2 }}>
@@ -362,7 +412,6 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                                   <TableCell>Code</TableCell>
                                   <TableCell>Subject</TableCell>
                                   <TableCell width={"40%"}>Instructor</TableCell>
-                                  <TableCell>Schedule</TableCell>
                                 </TableRow>
                               </TableHead>
                               <TableBody>
@@ -398,6 +447,15 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                                     assignedToDetails = `${institutionId} - ${lastName}, ${firstName} (${email})`;
                                   }
                                   return <TableRow key={`subject-class-${subjectClassId}`}>
+                                    <TableCell>
+                                      <IconButton
+                                        aria-label="expand row"
+                                        size="small"
+                                        onClick={() => setOpenSubjectClassSchedule(!openSubjectClassSchedule)}
+                                      >
+                                        {open ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
+                                      </IconButton>
+                                    </TableCell>
                                     <TableCell>{subjectClassCode}</TableCell>
                                     <TableCell>{`(${subjectCode}) ${subjectTitle}`}</TableCell>
                                     <TableCell>
@@ -413,9 +471,6 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                                         sx={{ mb: 2 }}
                                       />
                                     </TableCell>
-                                    <TableCell>{schedule
-                                      ? 'Scheduled'
-                                      : 'Unscheduled'}</TableCell>
                                   </TableRow>;
                                 })}
                               </TableBody>
@@ -479,13 +534,13 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                       </Accordion>
                     </Box>;
                   })}
-                </AccordionDetails>
-              </Accordion>
-            </Box>;
-          })}
-        </Box>}
-      </Grid>
-    </Grid>
+                </Grid>
+              </Grid>
+            </AccordionDetails>
+          </Accordion>
+        </Box>;
+      })}
+    </Box>}
   </Box>);
 };
 

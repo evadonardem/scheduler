@@ -223,6 +223,10 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
             '/course-curricula/{curriculum}/offerings',
             [AcademicYearScheduleCurriculumOfferingController::class, 'store']
         );
+        Route::delete(
+            '/course-curricula/{curriculum}/offerings',
+            [AcademicYearScheduleCurriculumOfferingController::class, 'destroy']
+        );
     });
 
     Route::group(['prefix' => 'common'], function () {

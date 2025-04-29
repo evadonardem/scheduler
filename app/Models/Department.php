@@ -30,6 +30,11 @@ class Department extends Model
         return $this->hasMany(Course::class);
     }
 
+    public function rooms(): HasMany
+    {
+        return $this->hasMany(Room::class, 'default_owner_department_id');
+    }
+
     public function subjects(): HasMany
     {
         return $this->hasMany(Subject::class);

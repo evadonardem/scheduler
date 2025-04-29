@@ -401,6 +401,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
         setUnscheduledEvents(filters?.department ? unscheduledSubjectClasses : []);
         setIsLoading(false);
       } catch (_error) {
+        window.localStorage.removeItem('academic-year-schedule-id');
         window.location.reload();
       }
     };
@@ -433,6 +434,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
         setUnscheduledEvents(filters?.department ? unscheduledSubjectClasses : []);
         setIsLoading(false);
       } catch (_error) {
+        window.localStorage.removeItem('academic-year-schedule-id');
         window.location.reload();
       }
     };
@@ -663,7 +665,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
           }}
         >
           <Chip label={`(${code}) ${name}`} icon={<RoomPreferences sx={{ fontSize: 22 }} />} color="default" sx={{ fontSize: 11 }} />
-          <Chip label={departmentCode} icon={<Apartment sx={{ fontSize: 22 }} />} color="default" sx={{ fontSize: 11 }} />
+          {/* <Chip label={departmentCode} icon={<Apartment sx={{ fontSize: 22 }} />} color="default" sx={{ fontSize: 11 }} /> */}
         </Box>;
       },
       []

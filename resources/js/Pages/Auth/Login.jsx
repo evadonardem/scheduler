@@ -26,7 +26,17 @@ function Copyright(props) {
   );
 }
 
-const defaultTheme = createTheme();
+const defaultTheme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#960e21',
+    },
+    secondary: {
+      main: '#f50057',
+    },
+  },
+});
 
 const Login = ({ errors }) => {
   const { appName } = usePage().props;
@@ -47,10 +57,13 @@ const Login = ({ errors }) => {
       <Grid container component="main" sx={{ height: '100vh' }}>
         <CssBaseline />
         <Grid
-          item
-          xs={false}
-          sm={4}
-          md={7}
+          size={
+            {
+              xs: 12,
+              sm: 4,
+              md: 7,
+            }
+          }
           sx={{
             backgroundImage: 'url(images/logo-kcp-emblem.png)',
             backgroundRepeat: 'no-repeat',
@@ -60,7 +73,13 @@ const Login = ({ errors }) => {
             backgroundPosition: 'center',
           }}
         />
-        <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
+        <Grid size={
+          {
+            xs: 12,
+            sm: 8,
+            md: 5,
+          }
+        } component={Paper} elevation={6} square>
           <Box
             sx={{
               my: 8,

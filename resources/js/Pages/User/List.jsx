@@ -72,6 +72,12 @@ const List = ({ errors, users }) => {
             sortable: false,
         },
         {
+            field: 'email',
+            flex: 1,
+            headerName: 'Email',
+            sortable: false,
+        },
+        {
             field: 'department',
             flex: 1,
             headerName: 'Department',
@@ -80,6 +86,15 @@ const List = ({ errors, users }) => {
                 ? `${department.code} - ${department.title}`
                 : '-',
         },
+        {
+            field: 'roles',
+            flex: 0.5,
+            headerName: 'Roles',
+            sortable: false,
+            valueGetter: (roles) => roles
+                ? `${roles.join(', ')}`
+                : '-',
+        }
     ];
 
     const handleImport = (event) => {

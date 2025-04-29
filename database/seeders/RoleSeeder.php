@@ -15,6 +15,7 @@ class RoleSeeder extends Seeder
         $roles = [
             'Super Admin',
             'Dean',
+            'Associate Dean',
             'Faculty',
         ];
 

@@ -26,6 +26,7 @@ class Curriculum extends Model
                 'year_level',
                 'units_lec',
                 'units_lab',
+                'credit_hours',
             ]);
     }
 }
