@@ -51,7 +51,7 @@ class AcademicYearScheduleController extends Controller
             })
             ->where('sc.academic_year_schedule_id', $academicYearSchedule->id);
 
-        if (! $authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean']))) {
+        if (! $authUserRoles->contains(fn($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean']))) {
             $scheduledSubjectClassesQuery->where('sc.assigned_to_user_id', $authUser->id);
         }
 
@@ -67,14 +67,14 @@ class AcademicYearScheduleController extends Controller
         $plottableWeek = $this->academicYearScheduleService->getPlottableWeek($academicYearSchedule);
         $baseDate = $plottableWeek['start'];
 
-        $dayStrings = fn (int $val) => match ($val) {
+        $dayStrings = fn(int $val) => match ($val) {
             1 => 'Monday',
             2 => 'Tuesday',
             3 => 'Wednesday',
             4 => 'Thursday',
             5 => 'Friday',
             6 => 'Saturday',
-            7 => 'Sunday',
+            0 => 'Sunday',
         };
 
         $scheduledEvents = collect();
@@ -94,7 +94,7 @@ class AcademicYearScheduleController extends Controller
                 return [
                     'id' => $subjectClass->id,
                     'title' => "$subjectClass->code - ($subject->code) $subject->title - $assignedToFullName ($assignedTo->email)",
-                    'color' => '#'.substr(md5($subjectClass->code), 0, 6),
+                    'color' => '#' . substr(md5($subjectClass->code), 0, 6),
                     'start' => $start->format('Y-m-d H:i:s'),
                     'end' => $start->copy()->addHours($durationInHours)->format('Y-m-d H:i:s'),
                     'resourceId' => $day['resource_id'],

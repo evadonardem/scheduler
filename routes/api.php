@@ -33,7 +33,7 @@ Route::get('/ping', function () {
     }
 
     return response()->json([
-        'name' => config('app.name').' API',
+        'name' => config('app.name') . ' API',
         'routes' => $routeList,
     ]);
 });
@@ -124,14 +124,14 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
             ->groupBy('sc.id')
             ->get();
 
-        $dayStrings = fn (int $val) => match ($val) {
+        $dayStrings = fn(int $val) => match ($val) {
             1 => 'Monday',
             2 => 'Tuesday',
             3 => 'Wednesday',
             4 => 'Thursday',
             5 => 'Friday',
             6 => 'Saturday',
-            7 => 'Sunday',
+            0 => 'Sunday',
         };
 
         $occupiedSlots = collect();
@@ -176,7 +176,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
             $resourceId = $day['resource_id'];
 
             // conflict check to related subject classes utilizing the same resource (room)
-            $overlaps1 = $occupiedSlots->filter(fn ($occupiedSlot) => $occupiedSlot['check_same_resource'])
+            $overlaps1 = $occupiedSlots->filter(fn($occupiedSlot) => $occupiedSlot['check_same_resource'])
                 ->contains(function ($occupiedSlot) use ($start, $end, $resourceId) {
                     $sameResource = $occupiedSlot['resource_id'] == $resourceId;
                     $startConflict = $start->between($occupiedSlot['start'], $occupiedSlot['end']);
@@ -188,7 +188,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
                 });
 
             // conflict check other assigned to user subject classes in other resources (rooms)
-            $overlaps2 = $occupiedSlots->filter(fn ($occupiedSlot) => ! $occupiedSlot['check_same_resource'])
+            $overlaps2 = $occupiedSlots->filter(fn($occupiedSlot) => ! $occupiedSlot['check_same_resource'])
                 ->contains(function ($occupiedSlot) use ($start, $end) {
                     $startConflict = $start->between($occupiedSlot['start'], $occupiedSlot['end']);
                     $endConflictCase1 = $end->subSeconds(1) != $occupiedSlot['start'] && $end->between($occupiedSlot['start'], $occupiedSlot['end']);

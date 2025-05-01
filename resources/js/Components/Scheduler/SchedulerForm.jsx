@@ -1,10 +1,185 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Accordion, AccordionDetails, AccordionSummary, Autocomplete, Backdrop, Badge, Box, Button, Chip, CircularProgress, Divider, Grid, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, TextField, Typography } from "@mui/material";
-import { ArrowDownward, Class, Delete, KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Accordion, AccordionDetails, AccordionSummary, Autocomplete, Backdrop, Badge, Box, Button, Chip, CircularProgress, Collapse, Divider, Grid, IconButton, Paper, Slider, Switch, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import { ArrowDownward, AvTimer, Class, Delete, Event, KeyboardArrowDown, KeyboardArrowUp, Person } from "@mui/icons-material";
 import PropTypes from 'prop-types';
-import axios from 'axios';
-import { find, first, includes, keyBy } from 'lodash';
+import axios, { CanceledError } from 'axios';
+import { countBy, find, first, includes, keyBy } from 'lodash';
 import { usePage } from '@inertiajs/react';
+import moment from 'moment/moment';
+
+const CancelToken = axios.CancelToken;
+let cancel;
+
+const UnscheduledSubjectClassRow = React.memo(({ subjectClass, users, onChangeAssignedToUser }) => {
+  const { auth: { token, department: authUserDepartment, roles: authUserRoles } } = usePage().props;
+  const {
+    assigned_to,
+    schedule,
+    color,
+    id: subjectClassId,
+    code: subjectClassCode,
+    credit_hours: creditHours,
+    subject: { code: subjectCode, title: subjectTitle },
+    section: {
+      id: sectionId,
+      is_block: isBlock,
+      year_level: yearLevel,
+      course: {
+        code: courseCode,
+        title: courseTitle,
+      },
+    },
+  } = subjectClass;
+  const assignedTo = assigned_to;
+  let assignedToUserId = null;
+  let assignedToDetails = null;
+  if (assignedTo) {
+    const {
+      email,
+      id,
+      institution_id: institutionId,
+      first_name: firstName,
+      last_name: lastName,
+    } = assignedTo;
+    assignedToUserId = id;
+    assignedToDetails = `${institutionId} - ${lastName}, ${firstName} (${email})`;
+  }
+
+  const initSubjectClassSchedule = [...moment.weekdaysShort().slice(1), moment.weekdaysShort()[0]].map((_day, index) => ({
+    day: (index + 1) % 7,
+    checked: false,
+  }));
+
+  const [openSubjectClassSchedule, setOpenSubjectClassSchedule] = useState(true);
+  const [scheduleChanged, setScheduleChanged] = useState(false);
+  const subjectClassSchedule = useRef(initSubjectClassSchedule);
+
+  /**
+   * API Calls
+   */
+  const updateSchedule = async (schedule) => {
+    if (cancel) {
+      cancel();
+    }
+
+    return await axios.patch(
+      `/api/subject-classes/${subjectClassId}/schedule`,
+      {
+        schedule
+      },
+      {
+        cancelToken: new CancelToken(function executor(c) {
+          cancel = c;
+        }),
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      },
+    );
+  };
+
+  useEffect(() => {
+    if (scheduleChanged) {
+      const checked = countBy(subjectClassSchedule.current, { checked: true });
+      const durationInHours = checked.true > 0 ? (creditHours / checked.true).toFixed(2) : 0;
+      const days = subjectClassSchedule.current.filter((entry) => entry.checked).map((entry) => {
+        return {
+          day: entry.day,
+          start_time: null,
+          resource_id: null,
+          duration_in_hours: +durationInHours,
+        };
+      });
+
+      let schedule = null;
+      if (days.length > 0) {
+        schedule = {
+          days
+        };
+      }
+
+      (async () => {
+        try {
+          await updateSchedule(schedule);
+        } catch (error) {
+          if (!(error instanceof CanceledError)) {
+            window.location.reload();
+          }
+        }
+      })();
+      setScheduleChanged(false);
+    }
+  }, [scheduleChanged]);
+
+  return <React.Fragment>
+    <TableRow key={`subject-class-${subjectClassId}`} sx={{ border: `3px solid ${color}`, borderBottom: 0, bgcolor: `${color}88` }}>
+      <TableCell>
+        <IconButton
+          aria-label="expand row"
+          size="small"
+          onClick={() => setOpenSubjectClassSchedule(!openSubjectClassSchedule)}
+        >
+          {open ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
+        </IconButton>
+      </TableCell>
+      <TableCell>{subjectClassCode}</TableCell>
+      <TableCell>{`(${subjectCode}) ${subjectTitle}`}</TableCell>
+      <TableCell align="center">{Number(creditHours).toFixed(2)}</TableCell>
+    </TableRow>
+    <TableRow sx={{ border: `3px solid ${color}` }}>
+      <TableCell sx={{ m: 0, p: 0 }} colSpan={4}>
+        <Collapse in={openSubjectClassSchedule} timeout="auto" unmountOnExit>
+          <Box sx={{ m: 0, p: 2 }}>
+            <TableContainer component={Paper} sx={{ bgcolor: `${color}22` }}>
+              <Table size="small" sx={{ border: "none" }}>
+                <TableBody>
+                  <TableRow key={`subject-class-${subjectClassId}-schedule-instructor`} sx={{ border: "none" }}>
+                    <TableCell sx={{ border: "none" }}><Chip icon={<Person />} label="Instructor" /></TableCell>
+                    <TableCell sx={{ border: "none" }}>
+                      {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role))
+                        ? <Autocomplete
+                            fullWidth
+                            defaultValue={users.find((user) => user.id == assignedToUserId) ?? null}
+                            getOptionLabel={(option) => `${option.institution_id} - ${option.last_name}, ${option.first_name}`}
+                            options={users}
+                            onChange={(_event, value) => {
+                              onChangeAssignedToUser(value, subjectClass);
+                            }}
+                            renderInput={(params) => <TextField {...params} placeholder="Assign instructor" />}
+                          />
+                        : assignedToDetails}
+                      
+                    </TableCell>
+                  </TableRow>
+                  <TableRow key={`subject-class-${subjectClassId}-schedule-days`} sx={{ border: "none" }}>
+                    <TableCell sx={{ border: "none" }}><Chip icon={<Event />} label="Days" /></TableCell>
+                    <TableCell sx={{ border: "none" }}>
+                      {[...moment.weekdaysShort().slice(1), moment.weekdaysShort()[0]].map((day, index) => {
+                        return <React.Fragment>
+                          <Switch
+                            disabled={!['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role))}
+                            ref={subjectClassSchedule.current}
+                            checked={subjectClassSchedule.current[index].checked}
+                            onChange={(_e, value) => {
+                              const newSubjectClassSchedule = subjectClassSchedule.current[index];
+                              newSubjectClassSchedule.checked = value;
+                              subjectClassSchedule.current[index] = newSubjectClassSchedule;
+                              setScheduleChanged(!scheduleChanged);
+                            }} />
+                          {day}
+                        </React.Fragment>;
+                      })}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        </Collapse>
+      </TableCell>
+    </TableRow>
+  </React.Fragment>;
+});
 
 const SchedulerForm = ({ academicYearScheduleId }) => {
   const { auth: { token, department: authUserDepartment, roles: authUserRoles } } = usePage().props;
@@ -23,8 +198,6 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
   const [curriculumOfferings, setCurriculumOfferings] = useState(null);
 
   const [processingBlockSection, setProcessingBlockSection] = useState(false);
-
-  const [openSubjectClassSchedule, setOpenSubjectClassSchedule] = useState(false);
 
   /**
    * API Calls
@@ -409,70 +582,17 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                               <caption>Unscheduled Subject Classes</caption>
                               <TableHead>
                                 <TableRow>
+                                  <TableCell></TableCell>
                                   <TableCell>Code</TableCell>
                                   <TableCell>Subject</TableCell>
-                                  <TableCell width={"40%"}>Instructor</TableCell>
+                                  <TableCell align="center">Credit Hrs.</TableCell>
                                 </TableRow>
                               </TableHead>
                               <TableBody>
-                                {unscheduled.map((subjectClass) => {
-                                  const {
-                                    assigned_to,
-                                    schedule,
-                                    id: subjectClassId,
-                                    code: subjectClassCode,
-                                    subject: { code: subjectCode, title: subjectTitle },
-                                    section: {
-                                      id: sectionId,
-                                      is_block: isBlock,
-                                      year_level: yearLevel,
-                                      course: {
-                                        code: courseCode,
-                                        title: courseTitle,
-                                      },
-                                    },
-                                  } = subjectClass;
-                                  const assignedTo = assigned_to;
-                                  let assignedToUserId = null;
-                                  let assignedToDetails = null;
-                                  if (assignedTo) {
-                                    const {
-                                      email,
-                                      id,
-                                      institution_id: institutionId,
-                                      first_name: firstName,
-                                      last_name: lastName,
-                                    } = assignedTo;
-                                    assignedToUserId = id;
-                                    assignedToDetails = `${institutionId} - ${lastName}, ${firstName} (${email})`;
-                                  }
-                                  return <TableRow key={`subject-class-${subjectClassId}`}>
-                                    <TableCell>
-                                      <IconButton
-                                        aria-label="expand row"
-                                        size="small"
-                                        onClick={() => setOpenSubjectClassSchedule(!openSubjectClassSchedule)}
-                                      >
-                                        {open ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
-                                      </IconButton>
-                                    </TableCell>
-                                    <TableCell>{subjectClassCode}</TableCell>
-                                    <TableCell>{`(${subjectCode}) ${subjectTitle}`}</TableCell>
-                                    <TableCell>
-                                      <Autocomplete
-                                        fullWidth
-                                        defaultValue={users.find((user) => user.id == assignedToUserId) ?? null}
-                                        getOptionLabel={(option) => `${option.institution_id} - ${option.last_name}, ${option.first_name}`}
-                                        options={users}
-                                        onChange={(_event, value) => {
-                                          handleAssignUserToSubjectClass(value, subjectClass);
-                                        }}
-                                        renderInput={(params) => <TextField {...params} label="Instructor" />}
-                                        sx={{ mb: 2 }}
-                                      />
-                                    </TableCell>
-                                  </TableRow>;
-                                })}
+                                {unscheduled.map((subjectClass) => <UnscheduledSubjectClassRow
+                                  subjectClass={subjectClass}
+                                  users={users}
+                                  onChangeAssignedToUser={handleAssignUserToSubjectClass} />)}
                               </TableBody>
                             </Table>
                           </TableContainer>
