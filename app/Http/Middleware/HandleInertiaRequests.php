@@ -37,13 +37,14 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        request()->user()?->tokens()->delete();
-
         $user = Auth::user();
         $department = $user ? $user->departments->first() : null;
 
         $appMenu = [];
         if (Auth::check()) {
+            cache()->put('current-user-id', Auth::id());
+            $currentToken = cache()->get('user-'.Auth::id().'-token');
+
             $authUserRoles = $user->roles->pluck('name');
 
             $dashboardMenu = [
@@ -111,6 +112,10 @@ class HandleInertiaRequests extends Middleware
             if ($authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean']))) {
                 $appMenu[] = $settingsMenu;
             }
+        } else {
+            cache()->forget('user-'.cache()->get('current-user-id').'-token');
+            cache()->forget('current-user-id');
+            request()->user()?->tokens()->delete();
         }
 
         return array_merge(parent::share($request), [
@@ -123,7 +128,7 @@ class HandleInertiaRequests extends Middleware
                 'department' => $department ? DepartmentResource::make($department)->toArray(request()) : null,
                 'roles' => Auth::user()->roles->pluck('name'),
                 'permissions' => Auth::user()->permissions,
-                'token' => request()->user()?->createToken('scheduler')->plainTextToken,
+                'token' => $currentToken ?: cache()->put("user-$user->id-token", request()->user()?->createToken('scheduler')->plainTextToken),
             ] : null,
             'flashMessage' => $request->session()->get('scheduler-flash-message'),
         ]);

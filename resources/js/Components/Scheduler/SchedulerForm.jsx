@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Accordion, AccordionDetails, AccordionSummary, Autocomplete, Backdrop, Badge, Box, Button, Chip, CircularProgress, Collapse, Divider, Grid, IconButton, Paper, Slider, Switch, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, TextField, Typography } from "@mui/material";
-import { ArrowDownward, AvTimer, Class, Delete, Event, KeyboardArrowDown, KeyboardArrowUp, Person } from "@mui/icons-material";
+import { Accordion, AccordionDetails, AccordionSummary, Autocomplete, Backdrop, Badge, Box, Button, Chip, CircularProgress, Collapse, Divider, Grid, IconButton, Paper, Switch, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import { ArrowDownward, Class, Delete, Event, KeyboardArrowDown, KeyboardArrowUp, Person } from "@mui/icons-material";
 import PropTypes from 'prop-types';
 import axios, { CanceledError } from 'axios';
 import { countBy, find, first, includes, keyBy } from 'lodash';
@@ -138,17 +138,18 @@ const UnscheduledSubjectClassRow = React.memo(({ subjectClass, users, onChangeAs
                     <TableCell sx={{ border: "none" }}>
                       {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role))
                         ? <Autocomplete
-                            fullWidth
-                            defaultValue={users.find((user) => user.id == assignedToUserId) ?? null}
-                            getOptionLabel={(option) => `${option.institution_id} - ${option.last_name}, ${option.first_name}`}
-                            options={users}
-                            onChange={(_event, value) => {
-                              onChangeAssignedToUser(value, subjectClass);
-                            }}
-                            renderInput={(params) => <TextField {...params} placeholder="Assign instructor" />}
-                          />
+                          fullWidth
+                          defaultValue={users.find((user) => user.id == assignedToUserId) ?? null}
+                          getOptionLabel={(option) =>
+                            `${option.institution_id} - ${option.last_name}, ${option.first_name} ${option.department ? `(${option.department.code})` : ''}`}
+                          options={users}
+                          onChange={(_event, value) => {
+                            onChangeAssignedToUser(value, subjectClass);
+                          }}
+                          renderInput={(params) => <TextField {...params} placeholder="Assign instructor" />}
+                        />
                         : assignedToDetails}
-                      
+
                     </TableCell>
                   </TableRow>
                   <TableRow key={`subject-class-${subjectClassId}-schedule-days`} sx={{ border: "none" }}>

@@ -1,18 +1,42 @@
 import React, { } from 'react';
-import { Box, Breadcrumbs, Divider, Typography } from "@mui/material";
+import { Breadcrumbs, Chip, Paper, Typography } from "@mui/material";
 import { Link } from '@inertiajs/react';
 
 const PageHeader = ({ title, subtitle = null, links = [] }) => {
-  return (<Box>
-    {!!links.length && <Breadcrumbs>
-      {links.map((link) => link?.to
-        ? <Link href={link.to}>{link.title}</Link>
-        : <Typography>{link.title}</Typography>)}
-    </Breadcrumbs>}
-    <Typography variant="h4">{title}</Typography>
-    {subtitle && <Typography variant="subtitle1">{subtitle}</Typography>}
-    <Divider sx={{ my: 2 }}/>
-  </Box>);
+  return (
+    <Paper
+      elevation={3}
+      sx={{
+        backgroundColor: "info.main",
+        color: "white",
+        p: 3,
+        mb: 3,
+        borderRadius: 2,
+        boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.2)",
+      }}
+      variant="outlined"
+    >
+      {!!links.length && (
+        <Breadcrumbs sx={{ mb: 1 }}>
+          {links.map((link, index) =>
+            link?.to ? (
+              <Link key={index} href={link.to} style={{ color: "white", textDecoration: "none" }}>
+                {link.title}
+              </Link>
+            ) : (
+              <Typography key={index} color="inherit">
+                {link.title}
+              </Typography>
+            )
+          )}
+        </Breadcrumbs>
+      )}
+      <Typography variant="h4" sx={{ fontWeight: "bold" }}>
+        {title}
+      </Typography>
+      {subtitle && <Chip label={subtitle} color="primary" sx={{ fontSize: "0.875rem", mt: 1 }} />}
+    </Paper>
+  );
 };
 
 export default PageHeader;

@@ -1,11 +1,11 @@
 import { DataGrid, GridActionsCellItem } from "@mui/x-data-grid";
 import MainLayout from "../../MainLayout";
-import { Alert, Box, Button, Divider, Grid, MenuItem, Paper, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Divider, Grid, MenuItem, Paper, TextField, Tooltip, Typography } from "@mui/material";
 import React, { useEffect, useState } from 'react';
 import { router, usePage } from "@inertiajs/react";
 import { DatePicker } from "@mui/x-date-pickers";
 import moment from "moment";
-import { CalendarMonth, FolderOpen } from "@mui/icons-material";
+import { AccountTree, CalendarMonth, FolderOpen } from "@mui/icons-material";
 import PageHeader from "../../Components/Common/PageHeader";
 
 const List = ({ academicYearSchedules, errors }) => {
@@ -127,6 +127,14 @@ const List = ({ academicYearSchedules, errors }) => {
                     }}
                     showInMenu={false}
                 />,
+                <Tooltip title="View Faculty Loadings Summary">
+                    <GridActionsCellItem
+                        label="Faculty Loadings"
+                        icon={<AccountTree />}
+                        onClick={() => router.visit(`/academic-year-schedules/${params.row.id}/faculty-loadings`)}
+                        showInMenu={false}
+                    />
+                </Tooltip>,
             ],
         },
 

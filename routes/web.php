@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AcademicYearScheduleController;
+use App\Http\Controllers\AcademicYearScheduleFacultyLoadingController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
@@ -38,7 +39,8 @@ Route::middleware('auth')->group(function () {
 
     Route::group(['prefix' => '/academic-year-schedules'], static function () {
         Route::get('/', [AcademicYearScheduleController::class, 'index'])->name('academic-year-schedules.list');
-        Route::get('/{academicYearSchedule}', [AcademicYearScheduleController::class, 'show'])->name('academic-year-schedules.list');
+        Route::get('/{academicYearSchedule}', [AcademicYearScheduleController::class, 'show']);
+        Route::get('/{academicYearSchedule}/faculty-loadings', [AcademicYearScheduleFacultyLoadingController::class, 'index'])->name('academic-year-schedules.faculty-loadings.list');
         Route::post('/', [AcademicYearScheduleController::class, 'store']);
     });
 

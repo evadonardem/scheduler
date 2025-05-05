@@ -38,7 +38,10 @@ class AuthController extends Controller
 
     public function destroy()
     {
+        cache()->forget('user-'.Auth::id().'-token');
+        cache()->forget('current-user-id');
         request()->user()->tokens()->delete();
+
         Auth::logout();
 
         return redirect()->route('login');

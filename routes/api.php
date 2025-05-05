@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AcademicYearScheduleController;
 use App\Http\Controllers\Api\AcademicYearScheduleCurriculumOfferingController;
 use App\Http\Controllers\Api\AcademicYearScheduleCurriculumSubjectController;
+use App\Http\Controllers\Api\AcademicYearScheduleDepartmentLoadController;
 use App\Http\Controllers\Api\CourseController;
 use App\Http\Controllers\Api\CurriculumController;
 use App\Http\Controllers\Api\DepartmentController;
@@ -33,7 +34,7 @@ Route::get('/ping', function () {
     }
 
     return response()->json([
-        'name' => config('app.name') . ' API',
+        'name' => config('app.name').' API',
         'routes' => $routeList,
     ]);
 });
@@ -124,7 +125,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
             ->groupBy('sc.id')
             ->get();
 
-        $dayStrings = fn(int $val) => match ($val) {
+        $dayStrings = fn (int $val) => match ($val) {
             1 => 'Monday',
             2 => 'Tuesday',
             3 => 'Wednesday',
@@ -176,7 +177,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
             $resourceId = $day['resource_id'];
 
             // conflict check to related subject classes utilizing the same resource (room)
-            $overlaps1 = $occupiedSlots->filter(fn($occupiedSlot) => $occupiedSlot['check_same_resource'])
+            $overlaps1 = $occupiedSlots->filter(fn ($occupiedSlot) => $occupiedSlot['check_same_resource'])
                 ->contains(function ($occupiedSlot) use ($start, $end, $resourceId) {
                     $sameResource = $occupiedSlot['resource_id'] == $resourceId;
                     $startConflict = $start->between($occupiedSlot['start'], $occupiedSlot['end']);
@@ -188,7 +189,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
                 });
 
             // conflict check other assigned to user subject classes in other resources (rooms)
-            $overlaps2 = $occupiedSlots->filter(fn($occupiedSlot) => ! $occupiedSlot['check_same_resource'])
+            $overlaps2 = $occupiedSlots->filter(fn ($occupiedSlot) => ! $occupiedSlot['check_same_resource'])
                 ->contains(function ($occupiedSlot) use ($start, $end) {
                     $startConflict = $start->between($occupiedSlot['start'], $occupiedSlot['end']);
                     $endConflictCase1 = $end->subSeconds(1) != $occupiedSlot['start'] && $end->between($occupiedSlot['start'], $occupiedSlot['end']);
@@ -227,6 +228,8 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
             '/course-curricula/{curriculum}/offerings',
             [AcademicYearScheduleCurriculumOfferingController::class, 'destroy']
         );
+        Route::get('/departments/{department}/faculties-load-units', [AcademicYearScheduleDepartmentLoadController::class, 'getFacultiesLoadUnits']);
+        Route::get('/departments/{department}/faculties-load-subject-classes', [AcademicYearScheduleDepartmentLoadController::class, 'getFacultiesLoadSubjectClasses']);
     });
 
     Route::group(['prefix' => 'common'], function () {

@@ -17,7 +17,16 @@ class UserController extends Controller
      */
     public function __invoke(Request $request)
     {
-        $users = User::orderBy('last_name')->get();
+        $usersQuery = User::query();
+
+        if ($request->has('filters.department')) {
+            $usersQuery->whereHas('departments', function ($query) use ($request) {
+                $relationTable = $query->getModel()->getTable();
+                $query->where("$relationTable.id", $request->input('filters.department.id'));
+            });
+        }
+
+        $users = $usersQuery->orderBy('last_name')->get();
 
         return UserResource::collection($users);
     }
