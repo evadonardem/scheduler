@@ -113,7 +113,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/rooms', [RoomController::class, 'downloadTemplate']);
     });
 
-    Route::group(['prefix' => '/rooms'], static function () {
+    Route::group([
+        'prefix' => '/rooms',
+        'middleware' => [
+            'role:Super Admin',
+        ],
+    ], static function () {
         Route::get('/', [RoomController::class, 'index'])->name('rooms.list');
         Route::post('/', [RoomController::class, 'store']);
     });
