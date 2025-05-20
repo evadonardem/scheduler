@@ -328,8 +328,6 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
    * Events
    */
   const handleAssignUserToSubjectClass = useCallback(async (user, subjectClass) => {
-    console.log(user);
-    console.log(subjectClass);
     await updateSubjectClassAssignee(user, subjectClass);
   }, []);
 
@@ -444,7 +442,7 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
         onChange={(_event, value) => {
           setSelectedDepartment(value);
         }}
-        readOnly={!includes('Super Admin', authUserRoles)}
+        readOnly={!includes(authUserRoles, 'Super Admin')}
         renderInput={(params) => <TextField {...params} label="Department" />}
         sx={{ mb: 2 }}
       />

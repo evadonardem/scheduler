@@ -39,7 +39,7 @@ const SchedulerFacultyLoading = ({ academicYearScheduleId }) => {
   const [facaltiesLoadUnits, setFacultiesLoadUnits] = useState([]);
   const [facultiesLoadSubjectClasses, setFacultiesLoadSubjectClasses] = useState([]);
 
-  const canSelectOtherDepartment = includes('Super Admin', authUserRoles);
+  const canSelectOtherDepartment = includes(authUserRoles, 'Super Admin');
   const canSelectOtherUser = ['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role));
 
   /**

@@ -159,12 +159,12 @@ const List = ({ academicYearSchedules, errors }) => {
     return (<Box>
         <PageHeader title="Academic Schedules" />
         <Grid container spacing={2}>
-            <Grid size={['Super Admin'].some(role => authUserRoles.includes(role)) ? 8 : 12}>
+            <Grid size={['Super Admin'].some(role => authUserRoles.includes(role)) ? 9 : 12}>
                 <DataGrid
                     columns={columns}
                     density="compact"
                     onPaginationModelChange={handlePaginationChange}
-                    pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
+                    pageSizeOptions={[5, 10, 15]}
                     paginationMode="server"
                     paginationModel={paginationModel}
                     rowCount={rowCount}
@@ -172,11 +172,11 @@ const List = ({ academicYearSchedules, errors }) => {
                     disableColumnMenu
                 />
             </Grid>
-            {['Super Admin'].some(role => authUserRoles.includes(role)) && <Grid size={4}>
+            {['Super Admin'].some(role => authUserRoles.includes(role)) && <Grid size={3}>
                 <Paper sx={{ marginBottom: 2, padding: 2 }}>
-                    <Typography variant="h6">Create New Academic Schedule</Typography>
+                    <Typography variant="h6">New Academic Schedule</Typography>
                     <Divider sx={{ my: 2 }} />
-                    <Grid container>
+                    <Grid container spacing={1}>
                         <Grid size={6}>
                             <DatePicker
                                 label="A.Y. Start"
@@ -190,7 +190,7 @@ const List = ({ academicYearSchedules, errors }) => {
                                 }}
                                 renderInput={(params) => <TextField
                                     {...params}
-                                    sx={{}} />}
+                                    size="small" />}
                                 sx={{ mb: 2, width: "100%" }}
                                 views={['year']}
                             />
@@ -212,14 +212,14 @@ const List = ({ academicYearSchedules, errors }) => {
                                 referenceDate={academicYearStart ?? null}
                                 renderInput={(params) => <TextField
                                     {...params}
-                                    sx={{}} />}
+                                    size="small" />}
                                 sx={{ mb: 2, width: "100%" }}
                                 views={['month', 'day']}
                             />
                         </Grid>
                     </Grid>
 
-                    <Grid container>
+                    <Grid container spacing={1}>
                         <Grid size={6}>
                             <DatePicker
                                 key={`academic-year-end-${academicYearEnd ?? ''}`}
@@ -228,7 +228,7 @@ const List = ({ academicYearSchedules, errors }) => {
                                 defaultValue={academicYearEnd}
                                 renderInput={(params) => <TextField
                                     {...params}
-                                    sx={{}} />}
+                                    size="small" />}
                                 sx={{ mb: 2, width: "100%" }}
                                 views={['year']}
                             />
@@ -250,7 +250,7 @@ const List = ({ academicYearSchedules, errors }) => {
                                 referenceDate={academicYearStart ?? null}
                                 renderInput={(params) => <TextField
                                     {...params}
-                                    sx={{}} />}
+                                    size="small" />}
                                 sx={{ mb: 2, width: "100%" }}
                                 views={['month', 'day']}
                             />
@@ -267,14 +267,15 @@ const List = ({ academicYearSchedules, errors }) => {
                         onChange={(e) => {
                             setSemesterId(e.target.value);
                         }}
+                        size="small"
                         sx={{ mb: 2 }}
                     >
                         <MenuItem value="1">1st Semester</MenuItem>
                         <MenuItem value="2">2nd Semester</MenuItem>
                     </TextField>
                     {errors?.academic_year && <Alert sx={{ mb: 2 }} severity="error">{errors?.academic_year}</Alert>}
-                    <Divider sx={{ my: 2 }} />
-                    <Button variant="contained" onClick={handleCreate}>Create</Button>
+                    <Divider sx={{ mb: 2 }} />
+                    <Button fullWidth variant="contained" onClick={handleCreate}>Create</Button>
                 </Paper>
             </Grid>}
         </Grid>

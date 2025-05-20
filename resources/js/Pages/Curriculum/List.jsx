@@ -1,12 +1,12 @@
 import { DataGrid, GridActionsCellItem } from "@mui/x-data-grid";
 import MainLayout from "../../MainLayout";
-import { Alert, Box, Button, Divider, Grid, Link, Paper, Stack, styled, TextField, Typography } from "@mui/material";
-import { CloudUpload, Delete, FolderOpen } from "@mui/icons-material";
+import { Alert, Box, Button, Divider, Grid, Paper, styled, TextField, Typography } from "@mui/material";
+import { Delete, FolderOpen } from "@mui/icons-material";
 import React, { useEffect } from 'react';
 import { router, useForm, usePage } from "@inertiajs/react";
 import PageHeader from "../../Components/Common/PageHeader";
 import AutocompleteDepartment from "../../Components/Common/AutocompleteDepartment";
-import { includes, set } from "lodash";
+import { includes } from "lodash";
 import AutocompleteCourse from "../../Components/Common/AutocompleteCourse";
 
 const VisuallyHiddenInput = styled('input')({
@@ -68,7 +68,7 @@ const List = ({ curricula }) => {
         course: null,
         code: null,
         description: null,
-    }); 
+    });
 
     let columns = [
         {
@@ -184,7 +184,7 @@ const List = ({ curricula }) => {
             preserveState: true,
             onSuccess: () => {
                 setSelectedDepartmentId(selectedDepartment?.id ?? null);
-                setData({...data, department: selectedDepartment?.id, course: null});
+                setData({ ...data, department: selectedDepartment?.id, course: null });
             },
         });
     };
@@ -194,7 +194,7 @@ const List = ({ curricula }) => {
             window.location.replace('/curricula');
         }
         if (selectedDepartmentId) {
-            setData({...data, department: selectedDepartmentId});
+            setData({ ...data, department: selectedDepartmentId });
         }
     }, []);
 
@@ -235,17 +235,17 @@ const List = ({ curricula }) => {
                 >
                     <Typography variant="h6">Create New Curricullum</Typography>
 
-                    <Divider sx={{ my: 2 }}/>
+                    <Divider sx={{ my: 2 }} />
 
                     <AutocompleteDepartment
                         key={`selected-department-${selectedDepartmentId ?? 0}`}
                         defaultDepartmentId={selectedDepartmentId}
                         error={!!errors?.department}
                         helperText={errors?.department}
-                        readOnly={!authUserRoles.includes('Super Admin')}
+                        readOnly={!includes(authUserRoles, 'Super Admin')}
                         onChange={handleOnChangeDepartment}
                     />
-                    
+
                     {selectedDepartmentId && <React.Fragment>
                         <AutocompleteCourse
                             key={`selected-department-${selectedDepartmentId ?? 0}-course-${data.course ?? 0}`}
@@ -255,7 +255,7 @@ const List = ({ curricula }) => {
                             }}
                             error={!!errors?.course}
                             helperText={errors.course ?? ''}
-                            onChange={(course) => setData({...data, course: course?.id})}
+                            onChange={(course) => setData({ ...data, course: course?.id })}
                         />
                         <TextField
                             key={`code-value-${!!data.code ? 'changed' : 'reset'}`}
@@ -296,7 +296,7 @@ const List = ({ curricula }) => {
                             }}
                         />
 
-                        <Divider sx={{ mb: 2 }}/>
+                        <Divider sx={{ mb: 2 }} />
 
                         <Button fullWidth type="submit" variant="contained">Submit</Button>
 

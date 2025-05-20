@@ -7,7 +7,7 @@ import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import PropTypes from "prop-types";
 import axios from "axios";
 import { clone, find, includes } from "lodash";
-import { Apartment, AvTimer, CalendarMonth, Event, Menu, Person, RoomPreferences, School, Subject } from "@mui/icons-material";
+import { AvTimer, CalendarMonth, Event, Menu, Person, RoomPreferences, School, Subject } from "@mui/icons-material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { Link, usePage } from "@inertiajs/react";
 
@@ -38,7 +38,7 @@ const HtmlTooltip = styled(({ className, ...props }) => (
     padding: 0,
   },
 }));
-const EventTooltip = React.memo(({ text, subjectClass, ellipsisText = true }) => {
+const EventTooltip = React.memo(({ text, subjectClass, ellipsisText = true, placement = "auto" }) => {
   const {
     color,
     code: subjectClassCode,
@@ -66,22 +66,22 @@ const EventTooltip = React.memo(({ text, subjectClass, ellipsisText = true }) =>
     days
   } = schedule ?? {};
   return (
-    <HtmlTooltip title={<React.Fragment> 
+    <HtmlTooltip placement={placement} title={<React.Fragment>
       <Card sx={{ bgcolor: `${color}88`, border: `5px solid ${color}`, color: "black" }}>
         <CardContent>
           <Box>
             <Typography variant="h6">{subjectClassCode}</Typography>
             <Typography variant="subtitle2">({subjectCode}) {subjectTitle}</Typography>
           </Box>
-          <Divider sx={{ color: {color}, my: 2 }} />
+          <Divider sx={{ color: { color }, my: 2 }} />
           <Stack spacing={1}>
             <Chip icon={<School />} label={`${courseCode} ${yearLevel} (${isBlock ? "Blk." : ""} Sec. ${sectionId})`} />
             <Chip icon={<Person />} label={`${assignedTo ? `${assignedToLastName}, ${assignedToFirstName}` : "(Unassigned)"}`} />
             <Chip icon={<AvTimer />} label={`Credit Hrs.: ${Number(creditHours).toFixed(2)}`} />
           </Stack>
-          <Divider sx={{ color: {color}, my: 2 }} />
+          <Divider sx={{ color: { color }, my: 2 }} />
           <Stack spacing={1}>
-            { days && days.map(({ day, duration_in_hours: durationInHours }) => <Chip icon={<Event />} label={`${WeekdaysShortLookup[day]} (${Number(durationInHours).toFixed(2)})`} />)}
+            {days && days.map(({ day, duration_in_hours: durationInHours }) => <Chip icon={<Event />} label={`${WeekdaysShortLookup[day]} (${Number(durationInHours).toFixed(2)})`} />)}
           </Stack>
         </CardContent>
       </Card>
@@ -473,8 +473,8 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
           room: null,
         });
       }}
-      readOnly={!includes('Super Admin', authUserRoles)}
-      renderInput={(params) => <TextField {...params} label="Department" />}
+      readOnly={!includes(authUserRoles, 'Super Admin')}
+      renderInput={(params) => <TextField {...params} label="Department" size="small" />}
       sx={{ mb: 2 }}
     />
     {calendarView === Views.WEEK && <Autocomplete
@@ -491,19 +491,19 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
           room: value,
         });
       }}
-      renderInput={(params) => <TextField {...params} label="Room" />}
+      renderInput={(params) => <TextField {...params} label="Room" size="small" />}
     />}
   </Box>;
 
   const SubjectClassesQueue = ({ unscheduledEvents }) => (
-    <Paper sx={{ height: "70vh", padding: 2 }}>
+    <Paper sx={{ height: "65vh", padding: 2 }}>
       <Typography>
         Subject Classes <Badge badgeContent={`${unscheduledEvents?.length ?? 0}`} color="primary">
           <Subject color="action" />
         </Badge>
       </Typography>
       <Divider sx={{ my: 2 }} />
-      <Box ref={unscheduledSubjectClassesRef} sx={{ height: "90%", overflowY: "auto" }}>
+      <Box ref={unscheduledSubjectClassesRef} sx={{ height: "85%", overflowY: "auto" }}>
         {unscheduledEvents.map((event) => {
           const {
             schedule,
@@ -537,14 +537,14 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
               }}
               onDragEnd={() => {
                 // setDraggedEvent(null);
-                }}
-              >
+              }}
+            >
               <Card sx={{ my: 1, border: 3, borderColor: `${event.color}`, bgcolor: `${event.color}88` }}>
                 <CardContent sx={{ mb: 0, pb: 0 }}>
-                  <EventTooltip text={`${subjectClassCode} - (${subjectCode}) ${subjectTitle}`} subjectClass={event} ellipsisText={false} />
+                  <EventTooltip text={`${subjectClassCode} - (${subjectCode}) ${subjectTitle}`} subjectClass={event} ellipsisText={false} placement="auto-start" />
                 </CardContent>
                 <CardActions>
-                  <Alert severity={schedule && assignedTo ? "success" : "warning"} variant="filled" sx={{p: 1, pt: 0, pb: 0 }}>
+                  <Alert severity={schedule && assignedTo ? "success" : "warning"} variant="filled" sx={{ p: 1, pt: 0, pb: 0 }}>
                     {schedule && assignedTo ? "Schedule Ready" : "Not Ready"}
                   </Alert>
                 </CardActions>
@@ -643,7 +643,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
           ref={(el) => (eventRefs.current[`${selectedEvent.id}-${selectedEvent.instanceId}`] = el)}
           alignItems="center"
         >
-          <EventTooltip text={title} subjectClass={selectedEvent.subjectClass} />
+          <EventTooltip text={title} subjectClass={selectedEvent.subjectClass} placement="auto" />
         </Box>
       ),
       []
@@ -665,7 +665,6 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
           }}
         >
           <Chip label={`(${code}) ${name}`} icon={<RoomPreferences sx={{ fontSize: 22 }} />} color="default" sx={{ fontSize: 11 }} />
-          {/* <Chip label={departmentCode} icon={<Apartment sx={{ fontSize: 22 }} />} color="default" sx={{ fontSize: 11 }} /> */}
         </Box>;
       },
       []
@@ -702,7 +701,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
     const handleChangeCalendarView = useCallback((e) => {
       setCalendarView(e.target.value);
     }, []);
-    return (<Box width={openSchedulerCalendarDrawer ? "78%" : "100%"}>
+    return (<Box width={openSchedulerCalendarDrawer ? "70%" : "100%"}>
       <Box>
         <Grid container justifyContent="space-between" alignItems="center">
           <Grid item>
@@ -725,40 +724,40 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
         </Grid>
       </Box>
       <Box
-      ref={calendarRef}
-      onDragOver={(e) => e.preventDefault()}
-      sx={{ height: "70vh", overflow: "auto" }}
+        ref={calendarRef}
+        onDragOver={(e) => e.preventDefault()}
+        sx={{ height: "70vh", overflow: "auto" }}
       >
-      <CalendarDragAndDrop
-        components={components}
-        defaultDate={plottableWeek.start}
-        defaultView={calendarView}
-        draggableAccessor={() => filters?.department ? "id" : false}
-        dragFromOutsideItem={() => false}
-        eventPropGetter={memoizedEventPropGetter}
-        events={events}
-        formats={{
-        dayFormat: "ddd",
-        }}
-        localizer={localizer}
-        max={maxTime}
-        min={minTime}
-        onDoubleClickEvent={useCallback(
-        (event) => handleShowEventDialog(event),
-        [academicYearSchedule.subject_classes]
-        )}
-        onDropFromOutside={SchedulerCalendarOnDropFromOutside}
-        onDragOverFromOutside={useCallback(() => {
-        console.log('check being drag over from outside...');
-        }, [])}
-        onEventDrop={['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) ? SchedulerCalendarOnEventDrop : false}
-        resources={resources}
-        resourcePropGetter={memoizedResourcePropGetter}
-        startAccessor={"start"}
-        step={15}
-        tooltipAccessor={() => false}
-        endAccessor={"end"}
-      />
+        <CalendarDragAndDrop
+          components={components}
+          defaultDate={plottableWeek.start}
+          defaultView={calendarView}
+          draggableAccessor={() => filters?.department ? "id" : false}
+          dragFromOutsideItem={() => false}
+          eventPropGetter={memoizedEventPropGetter}
+          events={events}
+          formats={{
+            dayFormat: "ddd",
+          }}
+          localizer={localizer}
+          max={maxTime}
+          min={minTime}
+          onDoubleClickEvent={useCallback(
+            (event) => handleShowEventDialog(event),
+            [academicYearSchedule.subject_classes]
+          )}
+          onDropFromOutside={SchedulerCalendarOnDropFromOutside}
+          onDragOverFromOutside={useCallback(() => {
+            console.log('check being drag over from outside...');
+          }, [])}
+          onEventDrop={['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) ? SchedulerCalendarOnEventDrop : false}
+          resources={resources}
+          resourcePropGetter={memoizedResourcePropGetter}
+          startAccessor={"start"}
+          step={15}
+          tooltipAccessor={() => false}
+          endAccessor={"end"}
+        />
       </Box>
     </Box>);
   });
@@ -1057,7 +1056,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
         resources={resources} />
     </>}
 
-    {academicYearSchedule && <Drawer anchor="right" open={openSchedulerCalendarDrawer} slotProps={{ paper: { sx: { p: 2, width: "20%" } } }} variant="persistent">
+    {academicYearSchedule && <Drawer anchor="right" open={openSchedulerCalendarDrawer} slotProps={{ paper: { sx: { p: 2, width: "28%" } } }} variant="persistent">
       {SchedulerCalendarMenu}
     </Drawer>}
 
