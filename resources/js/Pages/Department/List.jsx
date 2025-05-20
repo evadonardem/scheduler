@@ -1,9 +1,10 @@
 import { DataGrid, GridToolbarContainer, GridToolbarExport } from "@mui/x-data-grid";
 import MainLayout from "../../MainLayout";
-import { Box, Button, Link, Paper, Stack, styled } from "@mui/material";
+import { Box, Button, Grid, Link, Paper, Stack, styled } from "@mui/material";
 import { CloudUpload } from "@mui/icons-material";
 import React from 'react';
 import { router } from "@inertiajs/react";
+import PageHeader from "../../Components/Common/PageHeader";
 
 const CustomToolbar = () => <GridToolbarContainer>
     <GridToolbarExport printOptions={{ disableToolbarButton: true }} />
@@ -70,50 +71,59 @@ const List = ({ departments }) => {
     };
 
     return (
-        <>
-            <Paper sx={{ marginBottom: 2, padding: 2, width: '25%' }}>
-                <Box component="form" marginBottom={2} onSubmit={handleImport}>
-                    <Stack spacing={2}>
-                        <Button
-                            component="label"
-                            role={undefined}
-                            variant="outlined"
-                            tabIndex={-1}
-                            startIcon={<CloudUpload />}
-                            onSubmit={handleImport}
+        <React.Fragment>
+            <PageHeader title="Departments" />
+            <Grid container spacing={2}>
+                <Grid size={9}>
+                    <DataGrid
+                        columns={columns}
+                        density="compact"
+                        onPaginationModelChange={handlePaginationChange}
+                        pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
+                        paginationMode="server"
+                        paginationModel={paginationModel}
+                        rowCount={rowCount}
+                        rows={departments.data}
+                        slots={{ toolbar: CustomToolbar }}
+                        disableColumnMenu
+                    />
+                </Grid>
+                <Grid size={3}>
+                    <Paper sx={{ marginBottom: 2, padding: 2 }}>
+                        <Box component="form" marginBottom={2} onSubmit={handleImport}>
+                            <Stack spacing={2}>
+                                <Button
+                                    component="label"
+                                    role={undefined}
+                                    variant="outlined"
+                                    tabIndex={-1}
+                                    startIcon={<CloudUpload />}
+                                    onSubmit={handleImport}
+                                >
+                                    Upload Departments
+                                    <VisuallyHiddenInput type="file" name="departments" />
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    variant="contained"
+                                >
+                                    Import
+                                </Button>
+                            </Stack>
+                        </Box>
+                        <Link
+                            href="/import-templates/departments"
+                            target="_blank"
+                            rel="noopener noreferrer"
                         >
-                            Upload Departments
-                            <VisuallyHiddenInput type="file" name="departments" />
-                        </Button>
-                        <Button
-                            type="submit"
-                            variant="contained"
-                        >
-                            Import
-                        </Button>
-                    </Stack>
-                </Box>
-                <Link
-                    href="/import-templates/departments"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    Dowload Template
-                </Link>
-            </Paper>
-            <DataGrid
-                columns={columns}
-                density="compact"
-                onPaginationModelChange={handlePaginationChange}
-                pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
-                paginationMode="server"
-                paginationModel={paginationModel}
-                rowCount={rowCount}
-                rows={departments.data}
-                slots={{ toolbar: CustomToolbar }}
-                disableColumnMenu
-            />
-        </>
+                            Dowload Template
+                        </Link>
+                    </Paper>
+                </Grid>
+            </Grid>
+
+
+        </React.Fragment>
     );
 };
 

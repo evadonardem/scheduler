@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class UpdateCurriculumRequest extends FormRequest
 {
@@ -11,7 +12,12 @@ class UpdateCurriculumRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        $authUser = Auth::user();
+        $authUserRoles = $authUser->roles->pluck('name');
+
+        return $authUserRoles->contains(function ($role) {
+            return in_array($role, ['Super Admin', 'Dean', 'Associate Dean']);
+        });
     }
 
     /**
@@ -22,7 +28,7 @@ class UpdateCurriculumRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'is_active' => 'sometimes|required|boolean',
         ];
     }
 }

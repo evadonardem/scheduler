@@ -46,21 +46,61 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/profile/{user}', [UserController::class, 'edit'])->name('profile.edit');
 
-    Route::group(['prefix' => '/courses'], static function () {
+    Route::group([
+        'prefix' => '/courses',
+        'middleware' => [
+            'role:Super Admin|Dean|Associate Dean',
+        ],
+    ], static function () {
         Route::get('/', [CourseController::class, 'index'])->name('courses.list');
         Route::post('/', [CourseController::class, 'store']);
     });
 
-    Route::group(['prefix' => '/curricula'], static function () {
+    Route::group([
+        'prefix' => '/subjects',
+        'middleware' => [
+            'role:Super Admin|Dean|Associate Dean',
+        ],
+    ], static function () {
+        Route::get('/', [SubjectController::class, 'index'])->name('subjects.list');
+        Route::post('/', [SubjectController::class, 'store']);
+        Route::delete('/{subject}', [SubjectController::class, 'destroy']);
+    });
+
+    Route::group([
+        'prefix' => '/curricula',
+    ], static function () {
         Route::get('/', [CurriculumController::class, 'index'])->name('curricula.list');
-        // Route::post('/', [CurriculumController::class, 'store']);
+
+        Route::group([
+            'middleware' => [
+                'role:Super Admin|Dean|Associate Dean',
+            ],
+        ], static function () {
+            Route::post('/', [CurriculumController::class, 'store']);
+            Route::patch('/{curriculum}', [CurriculumController::class, 'update']);
+            Route::delete('/{curriculum}', [CurriculumController::class, 'destroy']);
+        });
 
         Route::group(['prefix' => '/{curriculum}/subjects'], static function () {
             Route::get('/', [CurriculumSubjectController::class, 'index']);
+            Route::group([
+                'middleware' => [
+                    'role:Super Admin|Dean|Associate Dean',
+                ],
+            ], static function () {
+                Route::post('/', [CurriculumSubjectController::class, 'store']);
+                Route::delete('/{curriculumSubject}', [CurriculumSubjectController::class, 'destroy']);
+            });
         });
     });
 
-    Route::group(['prefix' => '/departments'], static function () {
+    Route::group([
+        'prefix' => '/departments',
+        'middleware' => [
+            'role:Super Admin',
+        ],
+    ], static function () {
         Route::get('/', [DepartmentController::class, 'index']);
         Route::post('/', [DepartmentController::class, 'store']);
     });
@@ -77,12 +117,12 @@ Route::middleware('auth')->group(function () {
         // Route::post('/', [RoomController::class, 'store']);
     });
 
-    Route::group(['prefix' => '/subjects'], static function () {
-        Route::get('/', [SubjectController::class, 'index'])->name('subjects.list');
-        Route::post('/', [SubjectController::class, 'store']);
-    });
-
-    Route::group(['prefix' => '/users'], static function () {
+    Route::group([
+        'prefix' => '/users',
+        'middleware' => [
+            'role:Super Admin|Dean|Associate Dean',
+        ],
+    ], static function () {
         Route::get('/', [UserController::class, 'index'])->name('users.list');
         Route::post('/', [UserController::class, 'store']);
     });

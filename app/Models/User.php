@@ -71,4 +71,11 @@ class User extends Authenticatable
     {
         return $this->hasMany(SubjectClass::class, 'assigned_to_user_id');
     }
+
+    protected function isSuperAdmin(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->hasRole('Super Admin')
+        );
+    }
 }

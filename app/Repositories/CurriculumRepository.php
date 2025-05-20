@@ -16,6 +16,11 @@ class CurriculumRepository
         protected Semester $semester,
     ) {}
 
+    public function createCurriculum(array $data): Curriculum
+    {
+        return $this->curriculum->newQuery()->create($data);
+    }
+
     public function getAll(array $filters = []): Collection
     {
         $query = $this->curriculum->newQuery();
@@ -48,5 +53,12 @@ class CurriculumRepository
             ->orderBy("$curriculumSubjectTable.semester_id")
             ->where("$curriculumSubjectTable.curriculum_id", $curriculumId)
             ->get();
+    }
+
+    public function updateCurriculum(Curriculum $curriculum, array $data): Curriculum
+    {
+        $curriculum->update($data);
+
+        return $curriculum->refresh();
     }
 }

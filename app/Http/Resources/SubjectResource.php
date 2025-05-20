@@ -17,6 +17,7 @@ class SubjectResource extends JsonResource
             'pivot' => $this->whenPivotLoaded('curriculum_subject', function () {
                 return $this->pivot->only(['id', 'units_lec', 'units_lab', 'credit_hours']);
             }),
+            'is_deletable' => $this->curricula_count === 0,
         ];
     }
 }

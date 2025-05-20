@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\CourseController;
 use App\Http\Controllers\Api\CurriculumController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\RoomController;
+use App\Http\Controllers\Api\SemesterController;
+use App\Http\Controllers\Api\SubjectController;
 use App\Http\Controllers\Api\UserController;
 use App\Models\AcademicYearSchedule;
 use App\Models\Room;
@@ -237,6 +239,8 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::get('curricula', CurriculumController::class);
         Route::get('departments', DepartmentController::class);
         Route::get('rooms', RoomController::class);
+        Route::get('semesters', SemesterController::class);
+        Route::get('subjects', SubjectController::class);
         Route::get('users', UserController::class);
     });
 });

@@ -8,15 +8,20 @@ use App\Http\Resources\CourseResource;
 use App\Models\Course;
 use App\Models\Department;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 
 class CourseController extends Controller
 {
+    private $authUser;
+
     public function __construct(
         protected Course $courseModel,
         protected Department $departmentModel,
-    ) {}
+    ) {
+        $this->authUser = Auth::user();
+    }
 
     /**
      * Display a listing of the resource.
@@ -24,15 +29,24 @@ class CourseController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 5);
+        $filters = $request->input('filters');
 
-        $courses = $this->courseModel->newQuery()
-            ->with('department')
-            ->orderBy('title');
+        $coursesQuery = $this->courseModel->newQuery();
+
+        if ($this->authUser->isSuperAdmin) {
+            if ($filters['department']['id'] ?? false) {
+                $coursesQuery->where('department_id', $filters['department']['id']);
+            }
+        } else {
+            $coursesQuery->where('department_id', $this->authUser->departments->first()?->id ?? 0);
+        }
+
+        $coursesQuery->with('department')->orderBy('title');
 
         if ($perPage > 0) {
-            $courses = $courses->paginate($perPage);
+            $courses = $coursesQuery->paginate($perPage);
         } else {
-            $courses = $courses->get();
+            $courses = $coursesQuery->get();
         }
 
         return Inertia::render('Course/List', [
@@ -45,6 +59,7 @@ class CourseController extends Controller
      */
     public function store(StoreCourseRequest $request)
     {
+        $departmentId = $request->input('department_id');
         $filename = $request->file('courses');
         $fileHandle = fopen($filename, 'r');
         $headers = fgetcsv($fileHandle);
@@ -52,7 +67,6 @@ class CourseController extends Controller
         if ([
             'COURSE CODE',
             'COURSE TITLE',
-            'DEPARTMENT CODE',
         ] !== $headers) {
             return back()->with([
                 'scheduler-flash-message' => [
@@ -64,16 +78,10 @@ class CourseController extends Controller
 
         $data = [];
         while ($row = fgetcsv($fileHandle)) {
-            $department = $this->departmentModel->newQuery()
-                ->where('code', $row[2])
-                ->first();
-            if (! $department) {
-                continue;
-            }
             $data[] = [
                 'code' => $row[0],
                 'title' => $row[1],
-                'department_id' => $department->id,
+                'department_id' => $departmentId,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
@@ -91,13 +99,6 @@ class CourseController extends Controller
             'severity' => 'success',
             'value' => 'Import success.',
         ]);
-
-        // return redirect()->route('courses.list')->with([
-        //     'scheduler-flash-message' => [
-        //         'severity' => 'success',
-        //         'value' => "Import success.",
-        //     ],
-        // ]);
     }
 
     /**

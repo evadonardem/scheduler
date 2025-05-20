@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class CurriculumResource extends JsonResource
+class CurriculumFullDetailsResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
@@ -16,6 +16,7 @@ class CurriculumResource extends JsonResource
             'course' => CourseResource::make($this->course),
             'is_active' => (bool) $this->is_active,
             'is_draft' => (bool) $this->is_draft,
+            'coverage' => $this->coverage,
         ];
     }
 }

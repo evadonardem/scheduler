@@ -58,6 +58,8 @@ class FakeSeeder extends Seeder
                     'password' => Hash::make('123456'),
                 ]
             );
+        $defaultUser->assignRole('Faculty');
+        $defaultUser->assignRole('Dean');
         $defaultUser->assignRole('Super Admin');
 
         $this->command->line('Create fake departments, courses, subjects, rooms, and users...');
@@ -674,6 +676,7 @@ class FakeSeeder extends Seeder
                 });
             });
             $this->command->info('Done! Fake subject classes created.');
+            $defaultUser->departments()->sync(Department::where('code', 'CIT')->first()->id);
         }
     }
 }

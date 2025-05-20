@@ -54,7 +54,8 @@ class HandleInertiaRequests extends Middleware
                     'route' => 'dashboard',
                 ],
             ];
-            $schedulesMenu = [
+
+            $deparmentalMenu = [
                 [
                     'label' => 'Schedules',
                     'icon' => 'calendar_month',
@@ -62,40 +63,42 @@ class HandleInertiaRequests extends Middleware
                 ],
             ];
 
-            $curriculaMenu = [
-                [
-                    'label' => 'Curricula',
-                    'icon' => 'tab',
-                    'route' => 'curricula',
-                ],
+            if ($authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean']))) {
+                $deparmentalMenu[] = [
+                    'label' => 'Courses',
+                    'icon' => 'school',
+                    'route' => 'courses',
+                ];
+                $deparmentalMenu[] = [
+                    'label' => 'Subjects',
+                    'icon' => 'list_alt',
+                    'route' => 'subjects',
+                ];
+            }
+
+            $deparmentalMenu[] = [
+                'label' => 'Curricula',
+                'icon' => 'tab',
+                'route' => 'curricula',
             ];
+
             $settingsMenu = [
                 [
                     'label' => 'Settings',
                     'icon' => 'settings',
                     'submenu' => [
                         [
-                            'label' => 'Departments Registry',
+                            'label' => 'Departments',
                             'icon' => 'apartment',
                             'route' => 'departments',
                         ],
                         [
-                            'label' => 'Courses Registry',
-                            'icon' => 'school',
-                            'route' => 'courses',
-                        ],
-                        [
-                            'label' => 'Subjects Registry',
-                            'icon' => 'list_alt',
-                            'route' => 'subjects',
-                        ],
-                        [
-                            'label' => 'Rooms Registry',
+                            'label' => 'Rooms',
                             'icon' => 'room_preferences',
                             'route' => 'rooms',
                         ],
                         [
-                            'label' => 'Users Registry',
+                            'label' => 'Users',
                             'icon' => 'people',
                             'route' => 'users',
                         ],
@@ -105,8 +108,7 @@ class HandleInertiaRequests extends Middleware
 
             $appMenu = [
                 $dashboardMenu,
-                $schedulesMenu,
-                $curriculaMenu,
+                $deparmentalMenu,
             ];
 
             if ($authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean']))) {

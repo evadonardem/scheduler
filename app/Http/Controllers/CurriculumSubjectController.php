@@ -4,14 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreCurriculumSubjectRequest;
 use App\Http\Requests\UpdateCurriculumSubjectRequest;
+use App\Http\Resources\CurriculumFullDetailsResource;
 use App\Models\Curriculum;
 use App\Models\CurriculumSubject;
 use App\Services\CurriculumService;
+use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class CurriculumSubjectController extends Controller
 {
     public function __construct(
         protected CurriculumService $curriculumService,
+        protected CurriculumSubject $curriculumSubject,
     ) {}
 
     /**
@@ -19,8 +23,9 @@ class CurriculumSubjectController extends Controller
      */
     public function index(Curriculum $curriculum)
     {
-
-        return $this->curriculumService->getSubjectsByYearLevel($curriculum);
+        return Inertia::render('Curriculum/Subject/List', [
+            'curriculumFullDetails' => CurriculumFullDetailsResource::make($this->curriculumService->getSubjectsByYearLevel($curriculum)),
+        ]);
     }
 
     /**
@@ -34,9 +39,14 @@ class CurriculumSubjectController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreCurriculumSubjectRequest $request)
-    {
-        //
+    public function store(
+        StoreCurriculumSubjectRequest $request,
+        Curriculum $curriculum
+    ) {
+        $request->merge([
+            'initiated_by' => Auth::id(),
+        ]);
+        $this->curriculumService->addCurriculumSubjectFromRequest($curriculum, $request);
     }
 
     /**
@@ -66,8 +76,8 @@ class CurriculumSubjectController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(CurriculumSubject $curriculaSubject)
+    public function destroy(Curriculum $curriculum, CurriculumSubject $curriculumSubject)
     {
-        //
+        $curriculumSubject->delete();
     }
 }

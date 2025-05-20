@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class StoreCurriculumRequest extends FormRequest
 {
@@ -11,7 +12,12 @@ class StoreCurriculumRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        $authUser = Auth::user();
+        $authUserRoles = $authUser->roles->pluck('name');
+
+        return $authUser->isSuperAdmin || $authUserRoles->contains(function ($role) {
+            return in_array($role, ['Dean', 'Associate Dean']);
+        });
     }
 
     /**
@@ -22,7 +28,10 @@ class StoreCurriculumRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'department' => 'required|exists:departments,id',
+            'course' => 'required|exists:courses,id',
+            'code' => 'required|unique:curricula,code',
+            'description' => 'required',
         ];
     }
 }

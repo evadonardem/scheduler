@@ -8,14 +8,20 @@ use App\Http\Resources\SubjectResource;
 use App\Models\Department;
 use App\Models\Subject;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 
 class SubjectController extends Controller
 {
+    private $authUser;
+
     public function __construct(
         protected Department $departmentModel,
         protected Subject $subjectModel
-    ) {}
+    ) {
+        $this->authUser = Auth::user();
+    }
 
     /**
      * Display a listing of the resource.
@@ -23,15 +29,26 @@ class SubjectController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 5);
+        $filters = $request->input('filters');
 
-        $subjects = $this->subjectModel->newQuery()
-            ->with('department')
-            ->orderBy('title');
+        $subjectsQuery = $this->subjectModel->newQuery();
+
+        if ($this->authUser->isSuperAdmin) {
+            if ($filters['department']['id'] ?? false) {
+                $subjectsQuery->where('department_id', $filters['department']['id']);
+            }
+        } else {
+            $subjectsQuery->where('department_id', $this->authUser->departments->first()?->id ?? 0);
+        }
+
+        $subjectsQuery
+            ->withCount('curricula')
+            ->with('department')->orderBy('title');
 
         if ($perPage > 0) {
-            $subjects = $subjects->paginate($perPage);
+            $subjects = $subjectsQuery->paginate($perPage);
         } else {
-            $subjects = $subjects->get();
+            $subjects = $subjectsQuery->get();
         }
 
         return Inertia::render('Subject/List', [
@@ -44,22 +61,29 @@ class SubjectController extends Controller
      */
     public function store(StoreSubjectRequest $request)
     {
+        $departmentId = $request->input('department_id');
         $filename = $request->file('subjects');
         $fileHandle = fopen($filename, 'r');
         $headers = fgetcsv($fileHandle);
 
+        if ([
+            'SUBJECT CODE',
+            'SUBJECT TITLE',
+        ] !== $headers) {
+            return back()->with([
+                'scheduler-flash-message' => [
+                    'severity' => 'error',
+                    'value' => 'Invalid import template.',
+                ],
+            ]);
+        }
+
         $data = [];
         while ($row = fgetcsv($fileHandle)) {
-            $department = $this->departmentModel->newQuery()
-                ->where('code', $row[2])
-                ->first();
-            if (! $department) {
-                continue;
-            }
             $data[] = [
                 'code' => $row[0],
                 'title' => $row[1],
-                'department_id' => $department->id,
+                'department_id' => $departmentId,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
@@ -72,14 +96,11 @@ class SubjectController extends Controller
                 ['code'],
                 ['title']
             );
-    }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Subject $subject)
-    {
-        //
+        Session::flash('scheduler-flash-message', [
+            'severity' => 'success',
+            'value' => 'Import success.',
+        ]);
     }
 
     /**
@@ -95,7 +116,7 @@ class SubjectController extends Controller
      */
     public function destroy(Subject $subject)
     {
-        //
+        $subject->delete();
     }
 
     public function downloadTemplate()

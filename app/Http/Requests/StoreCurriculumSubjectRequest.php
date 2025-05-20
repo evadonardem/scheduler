@@ -11,7 +11,9 @@ class StoreCurriculumSubjectRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        $curricullum = $this->curriculum;
+
+        return $curricullum->is_draft;
     }
 
     /**
@@ -22,7 +24,12 @@ class StoreCurriculumSubjectRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'year_level' => 'required|numeric|min:1',
+            'semester_id' => 'required|exists:semesters,id',
+            'subject_id' => 'required|exists:subjects,id',
+            'units_lec' => 'required|numeric|min:1',
+            'units_lab' => 'sometimes|required|numeric|min:0',
+            'credit_hours' => 'required|numeric|min:1',
         ];
     }
 }

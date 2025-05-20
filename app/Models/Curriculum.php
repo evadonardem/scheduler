@@ -12,6 +12,15 @@ class Curriculum extends Model
     /** @use HasFactory<\Database\Factories\CurriculumFactory> */
     use HasFactory;
 
+    protected $fillable = [
+        'code',
+        'description',
+        'course_id',
+        'is_draft',
+        'is_active',
+        'created_by',
+    ];
+
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
