@@ -11,7 +11,7 @@ const CancelToken = axios.CancelToken;
 let cancel;
 
 const UnscheduledSubjectClassRow = React.memo(({ subjectClass, users, onChangeAssignedToUser }) => {
-  const { auth: { token, department: authUserDepartment, roles: authUserRoles } } = usePage().props;
+  const { auth: { token, roles: authUserRoles } } = usePage().props;
   const {
     assigned_to,
     schedule,
@@ -20,15 +20,6 @@ const UnscheduledSubjectClassRow = React.memo(({ subjectClass, users, onChangeAs
     code: subjectClassCode,
     credit_hours: creditHours,
     subject: { code: subjectCode, title: subjectTitle },
-    section: {
-      id: sectionId,
-      is_block: isBlock,
-      year_level: yearLevel,
-      course: {
-        code: courseCode,
-        title: courseTitle,
-      },
-    },
   } = subjectClass;
   const assignedTo = assigned_to;
   let assignedToUserId = null;
@@ -45,10 +36,14 @@ const UnscheduledSubjectClassRow = React.memo(({ subjectClass, users, onChangeAs
     assignedToDetails = `${institutionId} - ${lastName}, ${firstName} (${email})`;
   }
 
-  const initSubjectClassSchedule = [...moment.weekdaysShort().slice(1), moment.weekdaysShort()[0]].map((_day, index) => ({
-    day: (index + 1) % 7,
-    checked: false,
-  }));
+  const initSubjectClassSchedule = [...moment.weekdaysShort().slice(1), moment.weekdaysShort()[0]].map((_day, index) => {
+    const day = (index + 1) % 7;
+    let checked = schedule?.days.length > 0 ? !!find(schedule?.days, { day: day }) : false;
+    return {
+      day,
+      checked,
+    };
+  });
 
   const [openSubjectClassSchedule, setOpenSubjectClassSchedule] = useState(true);
   const [scheduleChanged, setScheduleChanged] = useState(false);
@@ -146,7 +141,7 @@ const UnscheduledSubjectClassRow = React.memo(({ subjectClass, users, onChangeAs
                           onChange={(_event, value) => {
                             onChangeAssignedToUser(value, subjectClass);
                           }}
-                          renderInput={(params) => <TextField {...params} placeholder="Assign instructor" />}
+                          renderInput={(params) => <TextField {...params} placeholder="Assign instructor" size="small" />}
                         />
                         : assignedToDetails}
 
@@ -157,17 +152,20 @@ const UnscheduledSubjectClassRow = React.memo(({ subjectClass, users, onChangeAs
                     <TableCell sx={{ border: "none" }}>
                       {[...moment.weekdaysShort().slice(1), moment.weekdaysShort()[0]].map((day, index) => {
                         return <React.Fragment>
-                          <Switch
-                            disabled={!['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role))}
-                            ref={subjectClassSchedule.current}
-                            checked={subjectClassSchedule.current[index].checked}
-                            onChange={(_e, value) => {
-                              const newSubjectClassSchedule = subjectClassSchedule.current[index];
-                              newSubjectClassSchedule.checked = value;
-                              subjectClassSchedule.current[index] = newSubjectClassSchedule;
-                              setScheduleChanged(!scheduleChanged);
-                            }} />
-                          {day}
+                          <Paper component="span" sx={{ mr: 1, p: 0.5 }}>
+                            <Switch
+                              disabled={!['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role))}
+                              ref={subjectClassSchedule.current}
+                              checked={subjectClassSchedule.current[index].checked}
+                              size="small"
+                              onChange={(_e, value) => {
+                                const newSubjectClassSchedule = subjectClassSchedule.current[index];
+                                newSubjectClassSchedule.checked = value;
+                                subjectClassSchedule.current[index] = newSubjectClassSchedule;
+                                setScheduleChanged(!scheduleChanged);
+                              }} />
+                            {day}
+                          </Paper>
                         </React.Fragment>;
                       })}
                     </TableCell>
@@ -589,6 +587,7 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                               </TableHead>
                               <TableBody>
                                 {unscheduled.map((subjectClass) => <UnscheduledSubjectClassRow
+                                  key={`unscheduled-subject-class-${subjectClass.id}`}
                                   subjectClass={subjectClass}
                                   users={users}
                                   onChangeAssignedToUser={handleAssignUserToSubjectClass} />)}
@@ -602,9 +601,9 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                                 <TableRow>
                                   <TableCell>Code</TableCell>
                                   <TableCell>Subject</TableCell>
-                                  <TableCell>Course/Year</TableCell>
                                   <TableCell>Instructor</TableCell>
                                   <TableCell>Schedule</TableCell>
+                                  <TableCell>Credit Hrs.</TableCell>
                                 </TableRow>
                               </TableHead>
                               <TableBody>
@@ -612,18 +611,11 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                                   const {
                                     assigned_to,
                                     schedule,
+                                    color,
                                     id: subjectClassId,
                                     code: subjectClassCode,
+                                    credit_hours: creditHours,
                                     subject: { code: subjectCode, title: subjectTitle },
-                                    section: {
-                                      id: sectionId,
-                                      is_block: isBlock,
-                                      year_level: yearLevel,
-                                      course: {
-                                        code: courseCode,
-                                        title: courseTitle,
-                                      },
-                                    },
                                   } = subjectClass;
                                   const assignedTo = assigned_to;
                                   let assignedToDetails = null;
@@ -636,14 +628,15 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                                     } = assignedTo;
                                     assignedToDetails = `${id} - ${lastName}, ${firstName} (${email})`;
                                   }
-                                  return <TableRow key={`subject-class-${subjectClassId}`}>
+                                  return <TableRow
+                                    key={`scheduled-subject-class-${subjectClassId}`}
+                                    sx={{ border: `3px solid ${color}`, bgcolor: `${color}88` }}
+                                  >
                                     <TableCell>{subjectClassCode}</TableCell>
                                     <TableCell>{`(${subjectCode}) ${subjectTitle}`}</TableCell>
-                                    <TableCell>{`(${courseCode}) ${courseTitle} - ${yearLevel}`}</TableCell>
                                     <TableCell>{assignedToDetails ?? 'Unassigned'}</TableCell>
-                                    <TableCell>{schedule
-                                      ? 'Scheduled'
-                                      : 'Unscheduled'}</TableCell>
+                                    <TableCell>{schedule}</TableCell>
+                                    <TableCell>{Number(creditHours).toFixed(2)}</TableCell>
                                   </TableRow>;
                                 })}
                               </TableBody>

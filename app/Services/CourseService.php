@@ -11,8 +11,8 @@ class CourseService
         protected CourseRepository $courseRepository,
     ) {}
 
-    public function getCourses(?int $departmentId = null): Collection
+    public function getCourses(?int $departmentId = null, bool $isActive = false): Collection
     {
-        return $this->courseRepository->getCourses($departmentId, true);
+        return $this->courseRepository->getCourses($departmentId, $isActive);
     }
 }

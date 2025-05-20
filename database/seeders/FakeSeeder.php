@@ -607,8 +607,8 @@ class FakeSeeder extends Seeder
             $academicYearSchedule = $this->academicYearSchedule->factory()->create([
                 'academic_year' => '2024-2025',
                 'semester_id' => $semesterId,
-                'start_date' => '2025-01-01',
-                'end_date' => '2025-04-30',
+                'start_date' => $semesterId == 1 ? '2024-06-01' : '2025-01-01',
+                'end_date' => $semesterId == 1 ? '2024-12-31' : '2025-04-30',
             ]);
             $this->command->info('Done! Fake academic year schedule created.');
 
