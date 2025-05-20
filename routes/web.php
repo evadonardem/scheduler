@@ -110,11 +110,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/courses', [CourseController::class, 'downloadTemplate']);
         Route::get('/subjects', [SubjectController::class, 'downloadTemplate']);
         Route::get('/users', [UserController::class, 'downloadTemplate']);
+        Route::get('/rooms', [RoomController::class, 'downloadTemplate']);
     });
 
     Route::group(['prefix' => '/rooms'], static function () {
         Route::get('/', [RoomController::class, 'index'])->name('rooms.list');
-        // Route::post('/', [RoomController::class, 'store']);
+        Route::post('/', [RoomController::class, 'store']);
     });
 
     Route::group([

@@ -1,9 +1,11 @@
 import { DataGrid, GridToolbarContainer, GridToolbarExport } from "@mui/x-data-grid";
 import MainLayout from "../../MainLayout";
-import { Box, Button, Link, Paper, Stack, styled } from "@mui/material";
-import { Check, CloudUpload } from "@mui/icons-material";
-import React from 'react';
+import { Box, Button, Divider, Grid, Link, Paper, Stack, styled, TextField } from "@mui/material";
+import { Check, CloudUpload, Search } from "@mui/icons-material";
+import React, { } from 'react';
 import { router } from "@inertiajs/react";
+import PageHeader from "../../Components/Common/PageHeader";
+import { debounce } from "lodash";
 
 const CustomToolbar = () => <GridToolbarContainer>
     <GridToolbarExport printOptions={{ disableToolbarButton: true }} />
@@ -22,6 +24,9 @@ const VisuallyHiddenInput = styled('input')({
 });
 
 const List = ({ errors, rooms }) => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const searchKeyParam = queryParams.get('searchKey');
+
     const [paginationModel, setPaginationModel] = React.useState({
         page: rooms?.meta ? rooms.meta.current_page - 1 : 0,
         pageSize: rooms?.meta?.per_page || -1,
@@ -37,10 +42,14 @@ const List = ({ errors, rooms }) => {
     }, [rooms?.meta?.total]);
 
     const handlePaginationChange = (newPaginationModel) => {
-        router.get('/rooms', {
+        let params = {
             page: newPaginationModel.page + 1,
             per_page: newPaginationModel.pageSize,
-        }, {
+        };
+        if (searchKeyParam) {
+            params = { ...params, searchKey: searchKeyParam };
+        }
+        router.get('/rooms', params, {
             preserveScroll: true,
             onSuccess: () => setPaginationModel(newPaginationModel),
         });
@@ -65,7 +74,7 @@ const List = ({ errors, rooms }) => {
             headerName: 'Is Lec?',
             sortable: false,
             renderCell: (cell) => {
-                return !!cell.value && <Check/>;
+                return !!cell.value && <Check />;
             }
         },
         {
@@ -74,14 +83,18 @@ const List = ({ errors, rooms }) => {
             headerName: 'Is Lab?',
             sortable: false,
             renderCell: (cell) => {
-                return !!cell.value && <Check/>;
+                return !!cell.value && <Check />;
             }
         },
         {
-            field: 'department_owner',
+            field: 'department',
             flex: 0.5,
             headerName: 'Department Owner',
             sortable: false,
+            valueGetter: (department) => {
+                const { code, title } = department;
+                return `${code} - ${title}`;
+            },
         }
     ];
 
@@ -89,59 +102,103 @@ const List = ({ errors, rooms }) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
         const formJson = Object.fromEntries(formData.entries());
-        console.log(formJson);
         router.post(`/rooms`, formJson, {
             preserveScroll: true,
             preserveState: false,
         });
     };
 
+    const debouncedQuickSearch = React.useMemo(
+        () => debounce((newSearchKey, paginationModel) => {
+            let params = {
+                page: paginationModel.page + 1,
+                per_page: paginationModel.pageSize,
+            };
+            if (newSearchKey) {
+                params = { ...params, searchKey: newSearchKey };
+            }
+            router.get('/rooms', params, { preserveScroll: true });
+        }, 400),
+        [paginationModel]
+    );
+
+    const handleQuickSearch = (event) => {
+        debouncedQuickSearch(event.currentTarget.value, paginationModel);
+    };
+
     return (
-        <>
-            <Paper sx={{ marginBottom: 2, padding: 2, width: '25%' }}>
-                <Box component="form" marginBottom={2} onSubmit={handleImport}>
-                    <Stack spacing={2}>
-                        <Button
-                            component="label"
-                            role={undefined}
-                            variant="outlined"
-                            tabIndex={-1}
-                            startIcon={<CloudUpload />}
-                            onSubmit={handleImport}
+        <React.Fragment>
+            <PageHeader title="Rooms" />
+            <Grid container spacing={2}>
+                <Grid size={9}>
+                    <TextField
+                        fullWidth
+                        defaultValue={searchKeyParam}
+                        placeholder="Quick search room code/name"
+                        size="small"
+                        slotProps={{
+                            input: {
+                                startAdornment: <Search />
+                            }
+                        }}
+                        inputRef={input => {
+                            if (input) {
+                                input.focus();
+                            }
+                        }}
+                        onChange={handleQuickSearch}
+                    />
+                    <Divider sx={{ my: 2 }} />
+                    <Box>
+                        <DataGrid
+                            columns={columns}
+                            density="compact"
+                            onPaginationModelChange={handlePaginationChange}
+                            pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
+                            paginationMode="server"
+                            paginationModel={paginationModel}
+                            rowCount={rowCount}
+                            rows={rooms.data}
+                            slots={{ toolbar: CustomToolbar }}
+                            disableColumnMenu
+                        />
+                    </Box>
+                </Grid>
+                <Grid size={3}>
+                    <Paper sx={{ marginBottom: 2, padding: 2 }}>
+                        <Box component="form" marginBottom={2} onSubmit={handleImport}>
+                            <Stack spacing={2}>
+                                <Button
+                                    component="label"
+                                    role={undefined}
+                                    variant="outlined"
+                                    tabIndex={-1}
+                                    startIcon={<CloudUpload />}
+                                    onSubmit={handleImport}
+                                >
+                                    Upload Rooms
+                                    <VisuallyHiddenInput type="file" name="rooms" />
+                                </Button>
+                                {!!errors.rooms ? <p style={{ color: 'red' }}>{errors.rooms}</p> : null}
+                                <Button
+                                    type="submit"
+                                    variant="contained"
+                                >
+                                    Import
+                                </Button>
+                            </Stack>
+                        </Box>
+                        <Link
+                            href="/import-templates/rooms"
+                            target="_blank"
+                            rel="noopener noreferrer"
                         >
-                            Upload Rooms
-                            <VisuallyHiddenInput type="file" name="rooms" />
-                        </Button>
-                        {!!errors.rooms ? <p style={{ color: 'red' }}>{errors.rooms}</p> : null}
-                        <Button
-                            type="submit"
-                            variant="contained"
-                        >
-                            Import
-                        </Button>
-                    </Stack>
-                </Box>
-                <Link
-                    href="/import-templates/rooms"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    Dowload Template
-                </Link>
-            </Paper>
-            <DataGrid
-                columns={columns}
-                density="compact"
-                onPaginationModelChange={handlePaginationChange}
-                pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
-                paginationMode="server"
-                paginationModel={paginationModel}
-                rowCount={rowCount}
-                rows={rooms.data}
-                slots={{ toolbar: CustomToolbar }}
-                disableColumnMenu
-            />
-        </>
+                            Dowload Template
+                        </Link>
+                    </Paper>
+                </Grid>
+            </Grid>
+        </React.Fragment>
     );
 };
 

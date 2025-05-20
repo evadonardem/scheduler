@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\CourseResource;
 use App\Services\CourseService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class CourseController extends Controller
 {
@@ -19,8 +18,6 @@ class CourseController extends Controller
      */
     public function __invoke(Request $request)
     {
-        Log::debug($request->all());
-
         $departmentId = $request->input('filters.department.id');
         $isActive = $request->input('filters.is_active', false);
 
