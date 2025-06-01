@@ -26,7 +26,25 @@ class UserController extends Controller
             });
         }
 
+        if ($request->has('filters.academicYearSchedule.id')) {
+            $academicYearScheduleId = $request->input('filters.academicYearSchedule.id');
+            $usersQuery->with(['subjectClasses' => function ($query) use ($academicYearScheduleId) {
+                $query->where('academic_year_schedule_id', $academicYearScheduleId);
+            }]);
+        }
+
         $users = $usersQuery->orderBy('last_name')->get();
+
+        if ($request->has('filters.academicYearSchedule.id')) {
+            $academicYearScheduleId = $request->input('filters.academicYearSchedule.id');
+            $users = $users->map(function ($user) use ($academicYearScheduleId) {
+                $user->total_units = $user->subjectClasses->where('academic_year_schedule_id', $academicYearScheduleId)->sum(function ($subjectClass) {
+                    return ($subjectClass->curriculumSubject->units_lec ?? 0) + ($subjectClass->curriculumSubject->units_lab ?? 0);
+                });
+
+                return $user;
+            });
+        }
 
         return UserResource::collection($users);
     }

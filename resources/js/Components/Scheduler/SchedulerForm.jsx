@@ -3,14 +3,14 @@ import { Accordion, AccordionDetails, AccordionSummary, Autocomplete, Backdrop, 
 import { ArrowDownward, Class, Delete, Event, KeyboardArrowDown, KeyboardArrowUp, Person } from "@mui/icons-material";
 import PropTypes from 'prop-types';
 import axios, { CanceledError } from 'axios';
-import { countBy, find, first, includes, keyBy } from 'lodash';
+import { countBy, find, first, includes, keyBy, uniqueId } from 'lodash';
 import { usePage } from '@inertiajs/react';
 import moment from 'moment/moment';
 
 const CancelToken = axios.CancelToken;
 let cancel;
 
-const UnscheduledSubjectClassRow = React.memo(({ subjectClass, users, onChangeAssignedToUser }) => {
+const UnscheduledSubjectClassRow = React.memo(({ curriculum, subjectClass, users, usersAutoCompleteUniqueId, onChangeAssignedToUser }) => {
   const { auth: { token, roles: authUserRoles } } = usePage().props;
   const {
     assigned_to,
@@ -134,12 +134,13 @@ const UnscheduledSubjectClassRow = React.memo(({ subjectClass, users, onChangeAs
                       {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role))
                         ? <Autocomplete
                           fullWidth
+                          key={usersAutoCompleteUniqueId}
                           defaultValue={users.find((user) => user.id == assignedToUserId) ?? null}
                           getOptionLabel={(option) =>
-                            `${option.institution_id} - ${option.last_name}, ${option.first_name} ${option.department ? `(${option.department.code})` : ''}`}
+                            `${option.institution_id} - ${option.last_name}, ${option.first_name} ${option.department ? `(${option.department.code})` : ''} ${option.total_units ? `[${option.total_units} Units]` : ''}`}
                           options={users}
                           onChange={(_event, value) => {
-                            onChangeAssignedToUser(value, subjectClass);
+                            onChangeAssignedToUser(curriculum, value, subjectClass);
                           }}
                           renderInput={(params) => <TextField {...params} placeholder="Assign instructor" size="small" />}
                         />
@@ -184,6 +185,7 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
   const { auth: { token, department: authUserDepartment, roles: authUserRoles } } = usePage().props;
 
   const [users, setUsers] = useState([]);
+  const [usersAutoCompleteUniqueId, setUsersAutoCompleteUniqueId] = useState(uniqueId('users-'));
 
   const [departments, setDepartments] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -207,6 +209,11 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
       {
         headers: {
           'Authorization': `Bearer ${token}`,
+        },
+        params: {
+          filters: {
+            academicYearSchedule: { id: academicYearScheduleId },
+          },
         },
       }
     );
@@ -325,8 +332,14 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
   /**
    * Events
    */
-  const handleAssignUserToSubjectClass = useCallback(async (user, subjectClass) => {
+  const handleAssignUserToSubjectClass = useCallback(async (curriculum, user, subjectClass) => {
     await updateSubjectClassAssignee(user, subjectClass);
+    const { data: users } = (await fetchUsers()).data;
+    const { data: curriculumOfferings } = (await fetchCurriculumOfferings(curriculum)).data;
+    const curriculumOfferingsKeyByYearLevel = keyBy(curriculumOfferings, 'year_level');
+    setUsers(users);
+    setUsersAutoCompleteUniqueId(uniqueId('users-'));
+    setCurriculumOfferings(curriculumOfferingsKeyByYearLevel);
   }, []);
 
   const handleCreateBlockSection = useCallback(async (curriculum, yearLevel) => {
@@ -429,134 +442,135 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
       <CircularProgress color="inherit" />
     </Backdrop>}
     <Box>
-      <Autocomplete
-        key={`department-${selectedDepartment?.id ?? 0}`}
-        disableClearable
-        disablePortal
-        fullWidth
-        defaultValue={selectedDepartment ?? null}
-        getOptionLabel={(option) => `${option.code} - ${option.title}`}
-        options={departments}
-        onChange={(_event, value) => {
-          setSelectedDepartment(value);
-        }}
-        readOnly={!includes(authUserRoles, 'Super Admin')}
-        renderInput={(params) => <TextField {...params} label="Department" />}
-        sx={{ mb: 2 }}
-      />
-      <Autocomplete
-        key={`course-${selectedCourse?.id ?? 0}`}
-        disabled={!selectedDepartment}
-        disableClearable
-        disablePortal
-        fullWidth
-        defaultValue={selectedCourse ?? null}
-        getOptionLabel={(option) => `${option.code} - ${option.title}`}
-        options={courses}
-        onChange={(_event, value) => {
-          setSelectedCourse(value);
-        }}
-        renderInput={(params) => <TextField {...params} label="Course" />}
-        sx={{ mb: 2 }}
-      />
-      <Autocomplete
-        key={`curriculum-${selectedCurriculum?.id ?? 0}`}
-        disabled={!selectedCourse}
-        disableClearable
-        disablePortal
-        fullWidth
-        defaultValue={selectedCurriculum ?? null}
-        getOptionLabel={(option) => `${option.code} - ${option.description}`}
-        options={curricula}
-        onChange={(_event, value) => {
-          setSelectedCurriculum(value);
-        }}
-        renderInput={(params) => <TextField {...params} label="Curriculum" />}
-        sx={{ mb: 2 }}
-      />
-    </Box>
-    {curriculumSubjects && <Box marginBottom={4}>
-      <Typography variant="h6">Opened Subject Classes</Typography>
-      <Divider sx={{ mb: 2 }} />
-      {curriculumSubjects.map((block) => {
-        const {
-          subjects,
-          year_level: yearLevel,
-        } = block;
-
-        const sectionsCount = curriculumOfferings[yearLevel]?.sections?.length ?? 0;
-
-        return <Box key={`block-${selectedCurriculum?.id ?? 0}-${yearLevel}`} marginBottom={2}>
-          <Accordion>
-            <AccordionSummary
-              expandIcon={<ArrowDownward />}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, width: '100%' }}>
-                <Typography component="span">Year Level: {yearLevel}</Typography>
-                <Badge badgeContent={`${sectionsCount}`} color="primary" sx={{ mr: 2 }}>
-                  <Class color="action" />
-                </Badge>
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Grid container spacing={2}>
-                <Grid size={4}>
-                  <TableContainer component={Paper} sx={{ mb: 2 }}>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Code</TableCell>
-                          <TableCell>Title</TableCell>
-                          <TableCell>Units Lec</TableCell>
-                          <TableCell>Units Lab</TableCell>
-                          <TableCell>Credit Hrs.</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {subjects.map((subject) => {
-                          const {
-                            code: subjectCode,
-                            title: subjectTitle,
-                            pivot: {
-                              id: curriculumSubjectId,
-                              units_lec: unitsLec,
-                              units_lab: unitsLab,
-                              credit_hours: creditHours,
-                            }
-                          } = subject;
-                          return <TableRow key={`curriculum-subject-${curriculumSubjectId}`}>
-                            <TableCell>{subjectCode}</TableCell>
-                            <TableCell>{subjectTitle}</TableCell>
-                            <TableCell>{unitsLec}</TableCell>
-                            <TableCell>{unitsLab}</TableCell>
-                            <TableCell>{Number(creditHours).toFixed(2)}</TableCell>
-                          </TableRow>;
-                        })}
-                      </TableBody>
-                      {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) && <TableFooter>
-                        <TableRow>
-                          <TableCell colSpan={5} align="center">
-                            <Button fullWidth variant="contained" onClick={() => {
-                              setProcessingBlockSection(true);
-                              handleCreateBlockSection(selectedCurriculum, yearLevel);
-                            }}>Create Block Section</Button>
-                          </TableCell>
-                        </TableRow>
-                      </TableFooter>}
-                    </Table>
-                  </TableContainer>
-                </Grid>
-                <Grid size={8}>
-                  {!!curriculumOfferings[yearLevel] && curriculumOfferings[yearLevel].sections.map((section, index) => {
-                    const {
-                      id: sectionId,
-                      subject_classes: {
-                        scheduled,
-                        unscheduled,
-                      },
-                    } = section;
-                    return <Box key={`year-level-${yearLevel}-section-${sectionId}`} marginBottom={2}>
-                      <Accordion>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h6">Opened Subject Classes</Typography>
+        <Divider sx={{ mb: 3 }} />
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid size={3}>
+            <Autocomplete
+              key={`department-${selectedDepartment?.id ?? 0}`}
+              disableClearable
+              disablePortal
+              fullWidth
+              defaultValue={selectedDepartment ?? null}
+              getOptionLabel={(option) => `${option.code} - ${option.title}`}
+              options={departments}
+              onChange={(_event, value) => {
+                setSelectedDepartment(value);
+              }}
+              readOnly={!includes(authUserRoles, 'Super Admin')}
+              renderInput={(params) => <TextField {...params} label="Department" size="small" />}
+            />
+          </Grid>
+          <Grid size={3}>
+            <Autocomplete
+              key={`course-${selectedCourse?.id ?? 0}`}
+              disabled={!selectedDepartment}
+              disableClearable
+              disablePortal
+              fullWidth
+              defaultValue={selectedCourse ?? null}
+              getOptionLabel={(option) => `${option.code} - ${option.title}`}
+              options={courses}
+              onChange={(_event, value) => {
+                setSelectedCourse(value);
+              }}
+              renderInput={(params) => <TextField {...params} label="Course" size="small" />}
+            />
+          </Grid>
+          <Grid size={6}>
+            <Autocomplete
+              key={`curriculum-${selectedCurriculum?.id ?? 0}`}
+              disabled={!selectedCourse}
+              disableClearable
+              disablePortal
+              fullWidth
+              defaultValue={selectedCurriculum ?? null}
+              getOptionLabel={(option) => `${option.code} - ${option.description}`}
+              options={curricula}
+              onChange={(_event, value) => {
+                setSelectedCurriculum(value);
+              }}
+              renderInput={(params) => <TextField {...params} label="Curriculum" size="small" />}
+            />
+          </Grid>
+        </Grid>
+        <Box>
+          {curriculumSubjects && curriculumSubjects.map((block) => {
+            const {
+              subjects,
+              year_level: yearLevel,
+            } = block;
+            const sectionsCount = curriculumOfferings[yearLevel]?.sections?.length ?? 0;
+            return <Accordion key={`block-${selectedCurriculum?.id ?? 0}-${yearLevel}`}>
+              <AccordionSummary
+                expandIcon={<ArrowDownward />}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, width: '100%' }}>
+                  <Typography component="span">Year Level: {yearLevel}</Typography>
+                  <Badge badgeContent={`${sectionsCount}`} color="primary" sx={{ mr: 2 }}>
+                    <Class color="action" />
+                  </Badge>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Grid container spacing={1}>
+                  <Grid size={4}>
+                    <TableContainer component={Paper} sx={{ bgcolor: "palegoldenrod" }}>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Code</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Title</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Units Lec</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Units Lab</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Credit Hrs.</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {subjects.map((subject) => {
+                            const {
+                              code: subjectCode,
+                              title: subjectTitle,
+                              pivot: {
+                                id: curriculumSubjectId,
+                                units_lec: unitsLec,
+                                units_lab: unitsLab,
+                                credit_hours: creditHours,
+                              }
+                            } = subject;
+                            return <TableRow key={`curriculum-subject-${curriculumSubjectId}`}>
+                              <TableCell>{subjectCode}</TableCell>
+                              <TableCell>{subjectTitle}</TableCell>
+                              <TableCell>{unitsLec}</TableCell>
+                              <TableCell>{unitsLab}</TableCell>
+                              <TableCell>{Number(creditHours).toFixed(2)}</TableCell>
+                            </TableRow>;
+                          })}
+                        </TableBody>
+                        {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) && <TableFooter>
+                          <TableRow>
+                            <TableCell colSpan={5} align="center">
+                              <Button fullWidth variant="contained" onClick={() => {
+                                setProcessingBlockSection(true);
+                                handleCreateBlockSection(selectedCurriculum, yearLevel);
+                              }}>Create Block Section</Button>
+                            </TableCell>
+                          </TableRow>
+                        </TableFooter>}
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+                  <Grid size={8}>
+                    {!!curriculumOfferings[yearLevel] && curriculumOfferings[yearLevel].sections.map((section, index) => {
+                      const {
+                        id: sectionId,
+                        subject_classes: {
+                          scheduled,
+                          unscheduled,
+                        },
+                      } = section;
+                      return <Accordion key={`year-level-${yearLevel}-section-${sectionId}`}>
                         <AccordionSummary
                           expandIcon={<ArrowDownward />}
                         >
@@ -588,8 +602,10 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                               <TableBody>
                                 {unscheduled.map((subjectClass) => <UnscheduledSubjectClassRow
                                   key={`unscheduled-subject-class-${subjectClass.id}`}
+                                  curriculum={selectedCurriculum}
                                   subjectClass={subjectClass}
                                   users={users}
+                                  usersAutoCompleteUniqueId={usersAutoCompleteUniqueId}
                                   onChangeAssignedToUser={handleAssignUserToSubjectClass} />)}
                               </TableBody>
                             </Table>
@@ -643,16 +659,16 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                             </Table>
                           </TableContainer>
                         </AccordionDetails>
-                      </Accordion>
-                    </Box>;
-                  })}
+                      </Accordion>;
+                    })}
+                  </Grid>
                 </Grid>
-              </Grid>
-            </AccordionDetails>
-          </Accordion>
-        </Box>;
-      })}
-    </Box>}
+              </AccordionDetails>
+            </Accordion>;
+          })}
+        </Box>
+      </Paper>
+    </Box>
   </Box>);
 };
 
