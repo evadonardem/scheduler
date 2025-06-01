@@ -131,6 +131,7 @@ Route::middleware('auth')->group(function () {
     ], static function () {
         Route::get('/', [UserController::class, 'index'])->name('users.list');
         Route::post('/', [UserController::class, 'store']);
+        Route::patch('/{user}', [UserController::class, 'update']);
     });
 });
 

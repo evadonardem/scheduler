@@ -19,20 +19,35 @@ class UserController extends Controller
         protected DepartmentService $departmentService
     ) {}
 
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 5);
+        $searchKey = $request->input('searchKey');
+        $departmentId = $request->input('filters.department.id');
 
-        $users = $this->userModel->newQuery()
-            ->orderBy('last_name');
+        $usersQuery = $this->userModel->newQuery();
+
+        if ($searchKey) {
+            $usersQuery->where(function ($query) use ($searchKey) {
+                $query->where('institution_id', 'like', '%'.$searchKey.'%')
+                    ->orWhere('last_name', 'like', '%'.$searchKey.'%')
+                    ->orWhere('first_name', 'like', '%'.$searchKey.'%')
+                    ->orWhere('email', 'like', '%'.$searchKey.'%');
+            });
+        }
+
+        if ($departmentId) {
+            $usersQuery->whereHas('departments', function ($query) use ($departmentId) {
+                $query->where('departments.id', $departmentId);
+            });
+        }
+
+        $usersQuery->orderBy('last_name');
 
         if ($perPage > 0) {
-            $users = $users->paginate($perPage);
+            $users = $usersQuery->paginate($perPage);
         } else {
-            $users = $users->get();
+            $users = $usersQuery->get();
         }
 
         return Inertia::render('User/List', [
@@ -40,17 +55,6 @@ class UserController extends Controller
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         $filename = $request->file('users');
@@ -121,17 +125,6 @@ class UserController extends Controller
         ]);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(User $user)
     {
         $departments = $this->departmentService->getDepartments();
@@ -142,20 +135,26 @@ class UserController extends Controller
         ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(Request $request, User $user)
     {
-        //
-    }
+        $data = $request->only([
+            'last_name',
+            'first_name',
+        ]);
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        $roles = $request->input('roles', []);
+
+        if ($data) {
+            $user->update($data);
+        }
+
+        if ($roles) {
+            $user->syncRoles($roles);
+        }
+
+        $user->refresh();
+
+        return UserResource::make($user);
     }
 
     public function downloadTemplate()
