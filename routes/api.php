@@ -12,7 +12,6 @@ use App\Http\Controllers\Api\SemesterController;
 use App\Http\Controllers\Api\SubjectController;
 use App\Http\Controllers\Api\UserController;
 use App\Models\AcademicYearSchedule;
-use App\Models\Room;
 use App\Models\SubjectClass;
 use App\Services\AcademicYearScheduleService;
 use Carbon\Carbon;
@@ -127,6 +126,43 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
             ->groupBy('sc.id')
             ->get();
 
+        $section = $subjectClass->section;
+        $subject = $subjectClass->curriculumSubject->subject;
+        $curriculum = $subjectClass->curriculumSubject->curriculum;
+        $subjectUnderCurriculum = $curriculum->subjects()->where(function ($query) use ($subject) {
+            $relationTable = $query->getModel()->getTable();
+            $query->where("$relationTable.id", $subject->id);
+        })->first();
+        $relatedSubjectClassesByBlockSection = SubjectClass::join(DB::raw("JSON_TABLE(
+                subject_classes.schedule,
+                '\$.days[*]' COLUMNS (
+                    resource_id INT PATH '\$.resource_id',
+                    start_time JSON PATH '\$.start_time'
+                )
+            ) AS jt"), function ($join) {
+            $join->where('jt.resource_id', '>', 0);
+            $join->whereNotNull('jt.start_time');
+        })
+            ->whereHas('assignedTo')
+            ->whereHas('curriculumSubject.curriculum.subjects', function ($query) use ($subjectUnderCurriculum) {
+                $query->where([
+                    'curriculum_id' => $subjectUnderCurriculum->pivot->curriculum_id,
+                    'semester_id' => $subjectUnderCurriculum->pivot->semester_id,
+                    'year_level' => $subjectUnderCurriculum->pivot->year_level,
+                ]);
+            })
+            ->where([
+                'academic_year_schedule_id' => $subjectClass->academic_year_schedule_id,
+            ])
+            ->where('id', '!=', $subjectClass->id)
+            ->where([
+                'is_block' => $subjectClass->is_block,
+                'section' => $section,
+            ])
+            ->select('subject_classes.*')
+            ->groupBy('subject_classes.id')
+            ->get();
+
         $dayStrings = fn (int $val) => match ($val) {
             1 => 'Monday',
             2 => 'Tuesday',
@@ -149,7 +185,8 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
                     'start' => $start,
                     'end' => $start->copy()->addHours($durationInHours),
                     'resource_id' => $day['resource_id'],
-                    'check_same_resource' => true,
+                    'type' => 'same_resource',
+                    'related_subject_class' => $relatedSubjectClass,
                 ]);
             }
         }
@@ -164,7 +201,24 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
                     'start' => $start,
                     'end' => $start->copy()->addHours($durationInHours),
                     'resource_id' => $day['resource_id'],
-                    'check_same_resource' => false,
+                    'type' => 'same_assigned_user',
+                    'related_subject_class' => $assignedToUserSubjectClass,
+                ]);
+            }
+        }
+        foreach ($relatedSubjectClassesByBlockSection as $relatedSubjectClassByBlockSection) {
+            foreach ($relatedSubjectClassByBlockSection->schedule['days'] as $day) {
+                $dayString = $dayStrings($day['day']);
+                $durationInHours = $day['duration_in_hours'] ?? 0;
+                $start = Carbon::now();
+                $start = $start->is($dayString) ? $start : $start->next($dayString);
+                $start->setHour($day['start_time']['hour'])->setMinute($day['start_time']['minute'])->setSecond(0);
+                $occupiedSlots->push([
+                    'start' => $start,
+                    'end' => $start->copy()->addHours($durationInHours),
+                    'resource_id' => $day['resource_id'],
+                    'type' => 'same_block_section',
+                    'related_subject_class' => $relatedSubjectClassByBlockSection,
                 ]);
             }
         }
@@ -179,30 +233,81 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
             $resourceId = $day['resource_id'];
 
             // conflict check to related subject classes utilizing the same resource (room)
-            $overlaps1 = $occupiedSlots->filter(fn ($occupiedSlot) => $occupiedSlot['check_same_resource'])
-                ->contains(function ($occupiedSlot) use ($start, $end, $resourceId) {
+            $closestSubjectClassInConflictByResource = null;
+            $overlaps1 = $occupiedSlots->filter(fn ($occupiedSlot) => $occupiedSlot['type'] === 'same_resource')
+                ->contains(function ($occupiedSlot) use ($start, $end, $resourceId, &$closestSubjectClassInConflictByResource) {
                     $sameResource = $occupiedSlot['resource_id'] == $resourceId;
                     $startConflict = $start->between($occupiedSlot['start'], $occupiedSlot['end']);
                     $endConflictCase1 = $end->subSeconds(1) != $occupiedSlot['start'] && $end->between($occupiedSlot['start'], $occupiedSlot['end']);
                     $endConflictCase2 = $end->greaterThanOrEqualTo($occupiedSlot['end']) && $occupiedSlot['end']->between($start, $end);
                     $endConflict = $endConflictCase1 || $endConflictCase2;
 
-                    return $sameResource && ($startConflict || $endConflict);
+                    $isConflict = $sameResource && ($startConflict || $endConflict);
+                    if ($isConflict) {
+                        $closestSubjectClassInConflictByResource = $occupiedSlot['related_subject_class'];
+                    }
+
+                    return $isConflict;
                 });
+            $closestSubjectClassInConflict = $closestSubjectClassInConflictByResource;
 
             // conflict check other assigned to user subject classes in other resources (rooms)
-            $overlaps2 = $occupiedSlots->filter(fn ($occupiedSlot) => ! $occupiedSlot['check_same_resource'])
-                ->contains(function ($occupiedSlot) use ($start, $end) {
-                    $startConflict = $start->between($occupiedSlot['start'], $occupiedSlot['end']);
-                    $endConflictCase1 = $end->subSeconds(1) != $occupiedSlot['start'] && $end->between($occupiedSlot['start'], $occupiedSlot['end']);
-                    $endConflictCase2 = $end->greaterThanOrEqualTo($occupiedSlot['end']) && $occupiedSlot['end']->between($start, $end);
-                    $endConflict = $endConflictCase1 || $endConflictCase2;
+            $closestSubjectClassInConflictByAssignedToUser = null;
+            $overlaps2 = false;
 
-                    return $startConflict || $endConflict;
-                });
+            if (! $overlaps1) {
+                $overlaps2 = $occupiedSlots->filter(fn ($occupiedSlot) => $occupiedSlot['type'] === 'same_assigned_user')
+                    ->contains(function ($occupiedSlot) use ($start, $end, &$closestSubjectClassInConflictByAssignedToUser) {
+                        $startConflict = $start->between($occupiedSlot['start'], $occupiedSlot['end']);
+                        $endConflictCase1 = $end->subSeconds(1) != $occupiedSlot['start'] && $end->between($occupiedSlot['start'], $occupiedSlot['end']);
+                        $endConflictCase2 = $end->greaterThanOrEqualTo($occupiedSlot['end']) && $occupiedSlot['end']->between($start, $end);
+                        $endConflict = $endConflictCase1 || $endConflictCase2;
 
-            if ($overlaps1 || $overlaps2) {
-                return response()->json(['error' => 'Time slot has conflicts.'], 422);
+                        $isConflict = $startConflict || $endConflict;
+                        if ($isConflict) {
+                            $closestSubjectClassInConflictByAssignedToUser = $occupiedSlot['related_subject_class'];
+                        }
+
+                        return $isConflict;
+                    });
+                $closestSubjectClassInConflict = $closestSubjectClassInConflictByResource;
+            }
+
+            // conflict check block section subject class in other block sections
+            $closestSubjectClassInConflictByBlockSection = null;
+            $overlaps3 = false;
+
+            if (! $overlaps1 && ! $overlaps2) {
+                $overlaps3 = $occupiedSlots->filter(fn ($occupiedSlot) => $occupiedSlot['type'] === 'same_block_section')
+                    ->contains(function ($occupiedSlot) use ($start, $end, &$closestSubjectClassInConflictByBlockSection) {
+                        $startConflict = $start->between($occupiedSlot['start'], $occupiedSlot['end']);
+                        $endConflictCase1 = $end->subSeconds(1) != $occupiedSlot['start'] && $end->between($occupiedSlot['start'], $occupiedSlot['end']);
+                        $endConflictCase2 = $end->greaterThanOrEqualTo($occupiedSlot['end']) && $occupiedSlot['end']->between($start, $end);
+                        $endConflict = $endConflictCase1 || $endConflictCase2;
+
+                        $isConflict = $startConflict || $endConflict;
+                        if ($isConflict) {
+                            $closestSubjectClassInConflictByBlockSection = $occupiedSlot['related_subject_class'];
+                        }
+
+                        return $isConflict;
+                    });
+                $closestSubjectClassInConflict = $closestSubjectClassInConflictByResource;
+            }
+
+            if ($overlaps1 || $overlaps2 || $overlaps3) {
+                $message = 'Time slot has conflicts.';
+                if ($overlaps1) {
+                    $message .= ' Conflicts with subject class '.$closestSubjectClassInConflict?->code.' in the same room.';
+                } elseif ($overlaps2) {
+                    $message .= ' Conflicts with subject class '.$closestSubjectClassInConflict?->code.' with the same faculty.';
+                } else {
+                    if ($overlaps3) {
+                        $message .= ' Conflicts with subject class '.$closestSubjectClassInConflict?->code.' in the same block section.';
+                    }
+                }
+
+                return response()->json(['error' => $message], 422);
             }
         }
 

@@ -15,6 +15,7 @@ class SemesterSeeder extends Seeder
         $semesters = [
             '1st Semester',
             '2nd Semester',
+            '3rd Semester',
         ];
 
         foreach ($semesters as $title) {
