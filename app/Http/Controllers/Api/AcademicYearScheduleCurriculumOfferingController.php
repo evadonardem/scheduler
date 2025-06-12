@@ -184,7 +184,7 @@ class AcademicYearScheduleCurriculumOfferingController extends Controller
                     substr(strtoupper(md5($academicYearSchedule->academic_year.$semesterId.$subject->id.now())), 0, 3),
                 'academic_year_schedule_id' => $academicYearSchedule->id,
                 'curriculum_subject_id' => $subject->pivot->id,
-                'credit_hours' => $subject->pivot->units_lec + $subject->pivot->units_lab,
+                'credit_hours' => $subject->pivot->credit_hours,
                 'section' => $newSection,
                 'is_block' => true,
             ];
