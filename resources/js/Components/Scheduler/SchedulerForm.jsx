@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Accordion, AccordionDetails, AccordionSummary, Autocomplete, Backdrop, Badge, Box, Button, Chip, CircularProgress, Collapse, Divider, Grid, IconButton, Paper, Switch, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, TextField, Typography } from "@mui/material";
-import { ArrowDownward, Class, Delete, Event, KeyboardArrowDown, KeyboardArrowUp, Person } from "@mui/icons-material";
+import { ArrowDownward, Class, Delete, Event, KeyboardArrowDown, KeyboardArrowUp, Person, Star } from "@mui/icons-material";
 import PropTypes from 'prop-types';
 import axios, { CanceledError } from 'axios';
 import { countBy, find, first, includes, keyBy, uniqueId } from 'lodash';
@@ -152,7 +152,7 @@ const UnscheduledSubjectClassRow = React.memo(({ curriculum, subjectClass, users
                     <TableCell sx={{ border: "none" }}><Chip icon={<Event />} label="Days" /></TableCell>
                     <TableCell sx={{ border: "none" }}>
                       {[...moment.weekdaysShort().slice(1), moment.weekdaysShort()[0]].map((day, index) => {
-                        return <React.Fragment>
+                        return <React.Fragment key={`subject-class-${subjectClassId}-schedule-days-${day}`}>
                           <Paper component="span" sx={{ mr: 1, p: 0.5 }}>
                             <Switch
                               disabled={!['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role))}
@@ -283,11 +283,12 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
     );
   };
 
-  const createCurriculumOfferings = async (curriculum, yearLevel) => {
+  const createCurriculumOfferings = async (curriculum, yearLevel, semesterId) => {
     return await axios.post(
       `/api/academic-year-schedules/${academicYearScheduleId}/course-curricula/${curriculum.id}/offerings`,
       {
         year_level: yearLevel,
+        semester_id: semesterId,
       },
       {
         headers: {
@@ -342,8 +343,8 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
     setCurriculumOfferings(curriculumOfferingsKeyByYearLevel);
   }, []);
 
-  const handleCreateBlockSection = useCallback(async (curriculum, yearLevel) => {
-    await createCurriculumOfferings(curriculum, yearLevel);
+  const handleCreateBlockSection = useCallback(async (curriculum, yearLevel, semesterId) => {
+    await createCurriculumOfferings(curriculum, yearLevel, semesterId);
     setProcessingBlockSection(false);
   }, []);
 
@@ -498,10 +499,12 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
         <Box>
           {curriculumSubjects && curriculumSubjects.map((block) => {
             const {
-              subjects,
+              semesters,
               year_level: yearLevel,
             } = block;
-            const sectionsCount = curriculumOfferings[yearLevel]?.sections?.length ?? 0;
+            const curriculumOfferingsByYearLevel = curriculumOfferings[yearLevel];
+            const sectionsCount = curriculumOfferingsByYearLevel ?
+              curriculumOfferingsByYearLevel.semesters.reduce((acc, entry) => acc + (entry.sections?.length ?? 0), 0) : 0;
             return <Accordion key={`block-${selectedCurriculum?.id ?? 0}-${yearLevel}`}>
               <AccordionSummary
                 expandIcon={<ArrowDownward />}
@@ -514,155 +517,169 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                 </Box>
               </AccordionSummary>
               <AccordionDetails>
-                <Grid container spacing={1}>
-                  <Grid size={4}>
-                    <TableContainer component={Paper} sx={{ bgcolor: "palegoldenrod" }}>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Code</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Title</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Units Lec</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Units Lab</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Credit Hrs.</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {subjects.map((subject) => {
-                            const {
-                              code: subjectCode,
-                              title: subjectTitle,
-                              pivot: {
-                                id: curriculumSubjectId,
-                                units_lec: unitsLec,
-                                units_lab: unitsLab,
-                                credit_hours: creditHours,
-                              }
-                            } = subject;
-                            return <TableRow key={`curriculum-subject-${curriculumSubjectId}`}>
-                              <TableCell>{subjectCode}</TableCell>
-                              <TableCell>{subjectTitle}</TableCell>
-                              <TableCell>{unitsLec}</TableCell>
-                              <TableCell>{unitsLab}</TableCell>
-                              <TableCell>{Number(creditHours).toFixed(2)}</TableCell>
-                            </TableRow>;
-                          })}
-                        </TableBody>
-                        {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) && <TableFooter>
-                          <TableRow>
-                            <TableCell colSpan={5} align="center">
-                              <Button fullWidth variant="contained" onClick={() => {
-                                setProcessingBlockSection(true);
-                                handleCreateBlockSection(selectedCurriculum, yearLevel);
-                              }}>Create Block Section</Button>
-                            </TableCell>
-                          </TableRow>
-                        </TableFooter>}
-                      </Table>
-                    </TableContainer>
-                  </Grid>
-                  <Grid size={8}>
-                    {!!curriculumOfferings[yearLevel] && curriculumOfferings[yearLevel].sections.map((section, index) => {
-                      const {
-                        id: sectionId,
-                        subject_classes: {
-                          scheduled,
-                          unscheduled,
-                        },
-                      } = section;
-                      return <Accordion key={`year-level-${yearLevel}-section-${sectionId}`}>
-                        <AccordionSummary
-                          expandIcon={<ArrowDownward />}
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, width: '100%' }}>
-                            <Typography component="span">Blk. Sec. {sectionId}</Typography>
-                            {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) &&
-                              index === curriculumOfferings[yearLevel].sections.length - 1 &&
-                              <IconButton color="primary" onClick={(e) => {
-                                e.stopPropagation();
-                                setProcessingBlockSection(true);
-                                handleDeleteBlockSection(selectedCurriculum, yearLevel, sectionId);
-                              }}>
-                                <Delete />
-                              </IconButton>}
-                          </Box>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          <TableContainer component={Paper} sx={{ mb: 2 }}>
-                            <Table size="small">
-                              <caption>Unscheduled Subject Classes</caption>
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell></TableCell>
-                                  <TableCell>Code</TableCell>
-                                  <TableCell>Subject</TableCell>
-                                  <TableCell align="center">Credit Hrs.</TableCell>
-                                </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {unscheduled.map((subjectClass) => <UnscheduledSubjectClassRow
-                                  key={`unscheduled-subject-class-${subjectClass.id}`}
-                                  curriculum={selectedCurriculum}
-                                  subjectClass={subjectClass}
-                                  users={users}
-                                  usersAutoCompleteUniqueId={usersAutoCompleteUniqueId}
-                                  onChangeAssignedToUser={handleAssignUserToSubjectClass} />)}
-                              </TableBody>
-                            </Table>
-                          </TableContainer>
-                          <TableContainer component={Paper}>
-                            <Table size="small">
-                              <caption>Scheduled Subject Classes</caption>
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell>Code</TableCell>
-                                  <TableCell>Subject</TableCell>
-                                  <TableCell>Instructor</TableCell>
-                                  <TableCell>Schedule</TableCell>
-                                  <TableCell>Credit Hrs.</TableCell>
-                                </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {scheduled.map((subjectClass) => {
-                                  const {
-                                    assigned_to,
-                                    schedule,
-                                    color,
-                                    id: subjectClassId,
-                                    code: subjectClassCode,
+                {semesters.map(({ semester, subjects, is_recommended: isRecommended }) => {
+                  const sectionsBySemester = curriculumOfferingsByYearLevel ?
+                    curriculumOfferingsByYearLevel.semesters.find((entry) => entry.semester.id === semester.id)?.sections || [] : [];
+
+                  return <Paper
+                    key={`year-level-${yearLevel}-semester-${semester.id}`}
+                    sx={{ p: 2, mb: 2, bgcolor: 'lightblue', borderRadius: 1, boxShadow: 1 }}
+                  >
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                      {semester.title} {isRecommended && <Chip icon={<Star />} label="Recommended Offerings" />}
+                    </Typography>
+                    <Divider sx={{ my: 2 }} />
+                    <Grid container spacing={1}>
+                      <Grid size={4}>
+                        <TableContainer component={Paper} sx={{ bgcolor: "palegoldenrod" }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell sx={{ fontWeight: 'bold' }}>Code</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold' }}>Title</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold' }}>Units Lec</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold' }}>Units Lab</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold' }}>Credit Hrs.</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {subjects.map((subject) => {
+                                const {
+                                  code: subjectCode,
+                                  title: subjectTitle,
+                                  pivot: {
+                                    id: curriculumSubjectId,
+                                    units_lec: unitsLec,
+                                    units_lab: unitsLab,
                                     credit_hours: creditHours,
-                                    subject: { code: subjectCode, title: subjectTitle },
-                                  } = subjectClass;
-                                  const assignedTo = assigned_to;
-                                  let assignedToDetails = null;
-                                  if (assignedTo) {
-                                    const {
-                                      email,
-                                      institution_id: id,
-                                      first_name: firstName,
-                                      last_name: lastName,
-                                    } = assignedTo;
-                                    assignedToDetails = `${id} - ${lastName}, ${firstName} (${email})`;
                                   }
-                                  return <TableRow
-                                    key={`scheduled-subject-class-${subjectClassId}`}
-                                    sx={{ border: `3px solid ${color}`, bgcolor: `${color}88` }}
-                                  >
-                                    <TableCell>{subjectClassCode}</TableCell>
-                                    <TableCell>{`(${subjectCode}) ${subjectTitle}`}</TableCell>
-                                    <TableCell>{assignedToDetails ?? 'Unassigned'}</TableCell>
-                                    <TableCell>{schedule}</TableCell>
-                                    <TableCell>{Number(creditHours).toFixed(2)}</TableCell>
-                                  </TableRow>;
-                                })}
-                              </TableBody>
-                            </Table>
-                          </TableContainer>
-                        </AccordionDetails>
-                      </Accordion>;
-                    })}
-                  </Grid>
-                </Grid>
+                                } = subject;
+                                return <TableRow key={`curriculum-subject-${curriculumSubjectId}`}>
+                                  <TableCell>{subjectCode}</TableCell>
+                                  <TableCell>{subjectTitle}</TableCell>
+                                  <TableCell>{unitsLec}</TableCell>
+                                  <TableCell>{unitsLab}</TableCell>
+                                  <TableCell>{Number(creditHours).toFixed(2)}</TableCell>
+                                </TableRow>;
+                              })}
+                            </TableBody>
+                            {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) && <TableFooter>
+                              <TableRow>
+                                <TableCell colSpan={5} align="center">
+                                  <Button fullWidth variant="contained" onClick={() => {
+                                    setProcessingBlockSection(true);
+                                    handleCreateBlockSection(selectedCurriculum, yearLevel, semester.id);
+                                  }}>Create Block Section</Button>
+                                </TableCell>
+                              </TableRow>
+                            </TableFooter>}
+                          </Table>
+                        </TableContainer>
+                      </Grid>
+                      <Grid size={8}>
+                        {sectionsBySemester.map((section, index) => {
+                          const {
+                            id: sectionId,
+                            subject_classes: {
+                              scheduled,
+                              unscheduled,
+                            },
+                          } = section;
+                          return <Accordion key={`year-level-${yearLevel}-section-${sectionId}`}>
+                            <AccordionSummary
+                              expandIcon={<ArrowDownward />}
+                            >
+                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, width: '100%' }}>
+                                <Typography component="span">Blk. Sec. {sectionId}</Typography>
+                                {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) &&
+                                  index === sectionsBySemester.length - 1 &&
+                                  <IconButton color="primary" onClick={(e) => {
+                                    e.stopPropagation();
+                                    setProcessingBlockSection(true);
+                                    handleDeleteBlockSection(selectedCurriculum, yearLevel, sectionId);
+                                  }}>
+                                    <Delete />
+                                  </IconButton>}
+                              </Box>
+                            </AccordionSummary>
+                            <AccordionDetails>
+                              <TableContainer component={Paper} sx={{ mb: 2 }}>
+                                <Table size="small">
+                                  <caption>Unscheduled Subject Classes</caption>
+                                  <TableHead>
+                                    <TableRow>
+                                      <TableCell></TableCell>
+                                      <TableCell>Code</TableCell>
+                                      <TableCell>Subject</TableCell>
+                                      <TableCell align="center">Credit Hrs.</TableCell>
+                                    </TableRow>
+                                  </TableHead>
+                                  <TableBody>
+                                    {unscheduled.map((subjectClass) => <UnscheduledSubjectClassRow
+                                      key={`unscheduled-subject-class-${subjectClass.id}`}
+                                      curriculum={selectedCurriculum}
+                                      subjectClass={subjectClass}
+                                      users={users}
+                                      usersAutoCompleteUniqueId={usersAutoCompleteUniqueId}
+                                      onChangeAssignedToUser={handleAssignUserToSubjectClass} />)}
+                                  </TableBody>
+                                </Table>
+                              </TableContainer>
+                              <TableContainer component={Paper}>
+                                <Table size="small">
+                                  <caption>Scheduled Subject Classes</caption>
+                                  <TableHead>
+                                    <TableRow>
+                                      <TableCell>Code</TableCell>
+                                      <TableCell>Subject</TableCell>
+                                      <TableCell>Instructor</TableCell>
+                                      <TableCell>Schedule</TableCell>
+                                      <TableCell>Credit Hrs.</TableCell>
+                                    </TableRow>
+                                  </TableHead>
+                                  <TableBody>
+                                    {scheduled.map((subjectClass) => {
+                                      const {
+                                        assigned_to,
+                                        schedule,
+                                        color,
+                                        id: subjectClassId,
+                                        code: subjectClassCode,
+                                        credit_hours: creditHours,
+                                        subject: { code: subjectCode, title: subjectTitle },
+                                      } = subjectClass;
+                                      const assignedTo = assigned_to;
+                                      let assignedToDetails = null;
+                                      if (assignedTo) {
+                                        const {
+                                          email,
+                                          institution_id: id,
+                                          first_name: firstName,
+                                          last_name: lastName,
+                                        } = assignedTo;
+                                        assignedToDetails = `${id} - ${lastName}, ${firstName} (${email})`;
+                                      }
+                                      return <TableRow
+                                        key={`scheduled-subject-class-${subjectClassId}`}
+                                        sx={{ border: `3px solid ${color}`, bgcolor: `${color}88` }}
+                                      >
+                                        <TableCell>{subjectClassCode}</TableCell>
+                                        <TableCell>{`(${subjectCode}) ${subjectTitle}`}</TableCell>
+                                        <TableCell>{assignedToDetails ?? 'Unassigned'}</TableCell>
+                                        <TableCell>{schedule}</TableCell>
+                                        <TableCell>{Number(creditHours).toFixed(2)}</TableCell>
+                                      </TableRow>;
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              </TableContainer>
+                            </AccordionDetails>
+                          </Accordion>;
+                        })}
+                      </Grid>
+                    </Grid>
+                  </Paper>;
+                })}
               </AccordionDetails>
             </Accordion>;
           })}

@@ -11,7 +11,7 @@ class CurriculumOfferingsResource extends JsonResource
     {
         return [
             'year_level' => $this->year_level,
-            'sections' => $this->sections,
+            'semesters' => $this->semesters,
         ];
     }
 }

@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CurriculumOfferingsResource;
+use App\Http\Resources\SemesterResource;
 use App\Http\Resources\SubjectClassResource;
 use App\Models\AcademicYearSchedule;
 use App\Models\Curriculum;
 use App\Models\SubjectClass;
 use App\Services\AcademicYearScheduleService;
 use App\Services\RoomService;
+use App\Services\SemesterService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -17,7 +19,8 @@ class AcademicYearScheduleCurriculumOfferingController extends Controller
 {
     public function __construct(
         protected AcademicYearScheduleService $academicYearScheduleService,
-        protected RoomService $roomService
+        protected RoomService $roomService,
+        protected SemesterService $semesterService
     ) {}
 
     public function index(
@@ -28,6 +31,7 @@ class AcademicYearScheduleCurriculumOfferingController extends Controller
         $authUser = Auth::user();
         $authUserRoles = $authUser->roles->pluck('name');
 
+        $semestersKeyById = $this->semesterService->getSemesters()->keyBy('id');
         $rooms = $this->roomService->getRooms([])->keyBy('id');
         $plottableWeek = $this->academicYearScheduleService->getPlottableWeek($academicYearSchedule);
         $baseDate = $plottableWeek['start'];
@@ -56,81 +60,96 @@ class AcademicYearScheduleCurriculumOfferingController extends Controller
         $subjectClasses = $subjectClassesQuery->get();
 
         $groupByYearLevel = $subjectClasses->groupBy('curriculumSubject.year_level')->values();
-        $groupByYearLevel = $groupByYearLevel->map(function ($subjectClassesByYearLevel) use ($baseDate, $dayStrings, $rooms) {
+        $groupByYearLevel = $groupByYearLevel->map(function ($subjectClassesByYearLevel) use ($baseDate, $dayStrings, $rooms, $semestersKeyById) {
             $yearLevel = $subjectClassesByYearLevel->pluck('curriculumSubject.year_level')->unique()->first();
-            $sections = $subjectClassesByYearLevel->groupBy('section')->map(function ($subjectClassesBySection) use ($baseDate, $dayStrings, $rooms) {
-                $scheduled = $subjectClassesBySection->filter(function ($subjectClass) {
-                    $schedule = $subjectClass->schedule;
-                    $isAssigned = $subjectClass->assigned_to_user_id;
-                    $isRoomAllocated = false;
-                    if ($schedule) {
-                        $days = collect($schedule['days']);
-                        $isRoomAllocated = $days->pluck('resource_id')->filter()->isNotEmpty();
-                    }
+            $sectionsBySemester = $subjectClassesByYearLevel
+                ->groupBy(fn ($subjectClass) => $subjectClass->section.'-'.$subjectClass->curriculumSubject->semester_id)
+                ->map(function ($subjectClassesBySection) use ($baseDate, $dayStrings, $rooms, $semestersKeyById) {
+                    $scheduled = $subjectClassesBySection->filter(function ($subjectClass) {
+                        $schedule = $subjectClass->schedule;
+                        $isAssigned = $subjectClass->assigned_to_user_id;
+                        $isRoomAllocated = false;
+                        if ($schedule) {
+                            $days = collect($schedule['days']);
+                            $isRoomAllocated = $days->pluck('resource_id')->filter()->isNotEmpty();
+                        }
 
-                    return $schedule && $isAssigned && $isRoomAllocated;
-                })->values();
-                $unscheduled = $subjectClassesBySection->diff($scheduled)->values();
+                        return $schedule && $isAssigned && $isRoomAllocated;
+                    })->values();
+                    $unscheduled = $subjectClassesBySection->diff($scheduled)->values();
 
-                $scheduled = $scheduled->map(function ($subjectClass) use ($baseDate, $dayStrings, $rooms) {
-                    $days = collect($subjectClass->schedule['days']);
-                    $scheduleDays = $days->map(function ($day) use ($baseDate, $dayStrings) {
+                    $scheduled = $scheduled->map(function ($subjectClass) use ($baseDate, $dayStrings, $rooms) {
+                        $days = collect($subjectClass->schedule['days']);
+                        $scheduleDays = $days->map(function ($day) use ($baseDate, $dayStrings) {
 
-                        $dayString = $dayStrings($day['day']);
-                        $start = $baseDate->clone();
+                            $dayString = $dayStrings($day['day']);
+                            $start = $baseDate->clone();
 
-                        $durationInHours = $day['duration_in_hours'] ?? 0;
-                        $start = $start->is($dayString) ? $start : $start->next($dayString);
-                        $start->setHour($day['start_time']['hour'])->setMinute($day['start_time']['minute'])->setSecond(0);
+                            $durationInHours = $day['duration_in_hours'] ?? 0;
+                            $start = $start->is($dayString) ? $start : $start->next($dayString);
+                            $start->setHour($day['start_time']['hour'])->setMinute($day['start_time']['minute'])->setSecond(0);
 
-                        return [
-                            'day' => $dayString,
-                            'time' => $start->format('h:i A').' to '.$start->copy()->addHours($durationInHours)->format('h:i A'),
-                            'resourceId' => $day['resource_id'],
-                        ];
-                    });
-
-                    $schedule = $scheduleDays->groupBy('resourceId')->map(function ($group) use ($rooms) {
-                        $slots = [];
-
-                        $group->each(function ($day) use (&$slots) {
-                            $key = $day['time'].' - '.$day['resourceId'];
-                            if (array_key_exists($key, $slots)) {
-                                $slots[$key]['days'][] = substr($day['day'], 0, 3);
-                                $slots[$key]['time'] = $day['time'];
-                            } else {
-                                $slots[$key] = [
-                                    'resourceId' => $day['resourceId'],
-                                    'days' => [substr($day['day'], 0, 3)],
-                                    'time' => $day['time'],
-                                ];
-                            }
+                            return [
+                                'day' => $dayString,
+                                'time' => $start->format('h:i A').' to '.$start->copy()->addHours($durationInHours)->format('h:i A'),
+                                'resourceId' => $day['resource_id'],
+                            ];
                         });
 
-                        $slots = array_map(function ($slot) use ($rooms) {
-                            return implode('/', $slot['days']).' - '.$slot['time'].' - '.$rooms[$slot['resourceId']]->code;
-                        }, $slots);
+                        $schedule = $scheduleDays->groupBy('resourceId')->map(function ($group) use ($rooms) {
+                            $slots = [];
 
-                        return collect($slots);
-                    })->flatten()->implode(' | ');
+                            $group->each(function ($day) use (&$slots) {
+                                $key = $day['time'].' - '.$day['resourceId'];
+                                if (array_key_exists($key, $slots)) {
+                                    $slots[$key]['days'][] = substr($day['day'], 0, 3);
+                                    $slots[$key]['time'] = $day['time'];
+                                } else {
+                                    $slots[$key] = [
+                                        'resourceId' => $day['resourceId'],
+                                        'days' => [substr($day['day'], 0, 3)],
+                                        'time' => $day['time'],
+                                    ];
+                                }
+                            });
 
-                    $subjectClass->schedule = $schedule;
+                            $slots = array_map(function ($slot) use ($rooms) {
+                                return implode('/', $slot['days']).' - '.$slot['time'].' - '.$rooms[$slot['resourceId']]->code;
+                            }, $slots);
 
-                    return $subjectClass;
-                });
+                            return collect($slots);
+                        })->flatten()->implode(' | ');
 
-                return (object) [
-                    'id' => $subjectClassesBySection->pluck('section')->unique()->first(),
-                    'subject_classes' => (object) [
-                        'scheduled' => SubjectClassResource::collection($scheduled),
-                        'unscheduled' => SubjectClassResource::collection($unscheduled),
-                    ],
-                ];
-            })->values();
+                        $subjectClass->schedule = $schedule;
+
+                        return $subjectClass;
+                    });
+
+                    $semester = $semestersKeyById->get($subjectClassesBySection->pluck('curriculumSubject.semester_id')->unique()->first());
+
+                    return (object) [
+                        'id' => $subjectClassesBySection->pluck('section')->unique()->first(),
+                        'semester' => SemesterResource::make($semester),
+                        'subject_classes' => (object) [
+                            'scheduled' => SubjectClassResource::collection($scheduled),
+                            'unscheduled' => SubjectClassResource::collection($unscheduled),
+                        ],
+                    ];
+                })
+                ->groupBy('semester.id')
+                ->map(function ($sectionsBySemester, $semesterId) use ($semestersKeyById) {
+                    $semester = $semestersKeyById->get($semesterId);
+
+                    return (object) [
+                        'semester' => SemesterResource::make($semester),
+                        'sections' => $sectionsBySemester,
+                    ];
+                })
+                ->values();
 
             return (object) [
                 'year_level' => $yearLevel,
-                'sections' => $sections,
+                'semesters' => $sectionsBySemester,
             ];
         })->sortBy('year_level')->values();
 
@@ -143,6 +162,7 @@ class AcademicYearScheduleCurriculumOfferingController extends Controller
         Curriculum $curriculum
     ) {
         $yearLevel = $request->input('year_level');
+        $semesterId = $request->input('semester_id');
         $maxSection = $academicYearSchedule
             ->subjectClasses()
             ->where('academic_year_schedule_id', $academicYearSchedule->id)
@@ -153,15 +173,15 @@ class AcademicYearScheduleCurriculumOfferingController extends Controller
             ->max('section');
 
         $subjects = $curriculum->subjects()
-            ->wherePivot('semester_id', $academicYearSchedule->semester_id)
+            ->wherePivot('semester_id', $semesterId)
             ->wherePivot('year_level', $yearLevel)
             ->get();
 
         $newSection = $maxSection + 1;
-        $newSubjectClasses = $subjects->map(function ($subject) use ($academicYearSchedule, $newSection) {
+        $newSubjectClasses = $subjects->map(function ($subject) use ($academicYearSchedule, $newSection, $semesterId) {
             return [
                 'code' => $subject->code.'-'.
-                    substr(strtoupper(md5($academicYearSchedule->academic_year.$academicYearSchedule->semester_id.$subject->id.now())), 0, 3),
+                    substr(strtoupper(md5($academicYearSchedule->academic_year.$semesterId.$subject->id.now())), 0, 3),
                 'academic_year_schedule_id' => $academicYearSchedule->id,
                 'curriculum_subject_id' => $subject->pivot->id,
                 'credit_hours' => $subject->pivot->units_lec + $subject->pivot->units_lab,

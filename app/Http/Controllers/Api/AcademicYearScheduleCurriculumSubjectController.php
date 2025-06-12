@@ -4,18 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CurriculumSubjectsResource;
+use App\Http\Resources\SemesterResource;
 use App\Http\Resources\SubjectResource;
 use App\Models\AcademicYearSchedule;
 use App\Models\Curriculum;
-use App\Services\AcademicYearScheduleService;
-use App\Services\RoomService;
+use App\Services\SemesterService;
 use Illuminate\Http\Request;
 
 class AcademicYearScheduleCurriculumSubjectController extends Controller
 {
     public function __construct(
-        protected AcademicYearScheduleService $academicYearScheduleService,
-        protected RoomService $roomService
+        protected SemesterService $semesterService
     ) {}
 
     /**
@@ -26,16 +25,31 @@ class AcademicYearScheduleCurriculumSubjectController extends Controller
         AcademicYearSchedule $academicYearSchedule,
         Curriculum $curriculum
     ) {
-        $subjects = $curriculum->subjects()->wherePivot('semester_id', $academicYearSchedule->semester_id)->get();
+        $subjects = $curriculum->subjects;
+        $semestersKeyById = $this->semesterService->getSemesters()->keyBy('id');
 
-        $subjectsByYearLevel = $subjects->groupBy('pivot.year_level')->values()->map(function ($subjectsByYearLevel) {
-            $yearLevel = $subjectsByYearLevel->pluck('pivot.year_level')->unique()->first();
+        $academicYearScheduleSemesterId = $academicYearSchedule->semester_id;
+        $subjectsByYearLevel = $subjects->groupBy('pivot.year_level')
+            ->values()
+            ->map(function ($subjectsByYearLevel) use ($academicYearScheduleSemesterId, $semestersKeyById) {
+                $yearLevel = $subjectsByYearLevel->pluck('pivot.year_level')->unique()->first();
+                $subjectsGroupedBySemester = $subjectsByYearLevel->groupBy('pivot.semester_id')
+                    ->mapWithKeys(fn ($subjectsBySemester, $semesterId) => [
+                        $semesterId => [
+                            'semester' => SemesterResource::make($semestersKeyById->get($semesterId)),
+                            'subjects' => SubjectResource::collection($subjectsBySemester),
+                            'is_recommended' => $semesterId == $academicYearScheduleSemesterId,
+                        ],
+                    ])
+                    ->sortBy('semester_id')
+                    ->sortByDesc('is_recommended')
+                    ->values();
 
-            return (object) [
-                'year_level' => $yearLevel,
-                'subjects' => SubjectResource::collection($subjectsByYearLevel),
-            ];
-        });
+                return (object) [
+                    'year_level' => $yearLevel,
+                    'semesters' => $subjectsGroupedBySemester,
+                ];
+            });
 
         return CurriculumSubjectsResource::collection($subjectsByYearLevel);
     }

@@ -270,7 +270,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
 
                         return $isConflict;
                     });
-                $closestSubjectClassInConflict = $closestSubjectClassInConflictByResource;
+                $closestSubjectClassInConflict = $closestSubjectClassInConflictByAssignedToUser;
             }
 
             // conflict check block section subject class in other block sections
@@ -292,7 +292,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
 
                         return $isConflict;
                     });
-                $closestSubjectClassInConflict = $closestSubjectClassInConflictByResource;
+                $closestSubjectClassInConflict = $closestSubjectClassInConflictByBlockSection;
             }
 
             if ($overlaps1 || $overlaps2 || $overlaps3) {
