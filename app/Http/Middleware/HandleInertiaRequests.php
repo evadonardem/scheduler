@@ -54,15 +54,13 @@ class HandleInertiaRequests extends Middleware
                 ],
             ];
 
-            $deparmentalMenu = [
-                [
+            $deparmentalMenu = [];
+            if ($authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean', 'HR Admin']))) {
+                $deparmentalMenu[] = [
                     'label' => 'Schedules',
                     'icon' => 'calendar_month',
                     'route' => 'academic-year-schedules',
-                ],
-            ];
-
-            if ($authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean']))) {
+                ];
                 $deparmentalMenu[] = [
                     'label' => 'Courses',
                     'icon' => 'school',
@@ -73,13 +71,13 @@ class HandleInertiaRequests extends Middleware
                     'icon' => 'list_alt',
                     'route' => 'subjects',
                 ];
-            }
 
-            $deparmentalMenu[] = [
-                'label' => 'Curricula',
-                'icon' => 'tab',
-                'route' => 'curricula',
-            ];
+                $deparmentalMenu[] = [
+                    'label' => 'Curricula',
+                    'icon' => 'tab',
+                    'route' => 'curricula',
+                ];
+            }
 
             $settingsMenu = [
                 [
@@ -110,8 +108,29 @@ class HandleInertiaRequests extends Middleware
                 $deparmentalMenu,
             ];
 
-            if ($authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean']))) {
+            if ($authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean', 'HR Admin']))) {
                 $appMenu[] = $settingsMenu;
+            } else {
+                if ($authUserRoles->contains('Room Admin')) {
+                    $appMenu[] = [
+                        [
+                            'label' => 'Settings',
+                            'icon' => 'settings',
+                            'submenu' => [
+                                [
+                                    'label' => 'Departments',
+                                    'icon' => 'apartment',
+                                    'route' => 'departments',
+                                ],
+                                [
+                                    'label' => 'Rooms',
+                                    'icon' => 'room_preferences',
+                                    'route' => 'rooms',
+                                ],
+                            ],
+                        ],
+                    ];
+                }
             }
         }
 

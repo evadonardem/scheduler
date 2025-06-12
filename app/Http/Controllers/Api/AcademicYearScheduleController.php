@@ -51,7 +51,7 @@ class AcademicYearScheduleController extends Controller
             })
             ->where('sc.academic_year_schedule_id', $academicYearSchedule->id);
 
-        if (! $authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean']))) {
+        if (! $authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean', 'HR Admin', 'Room Admin']))) {
             $scheduledSubjectClassesQuery->where('sc.assigned_to_user_id', $authUser->id);
         }
 

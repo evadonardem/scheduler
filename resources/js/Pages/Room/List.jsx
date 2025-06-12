@@ -3,9 +3,10 @@ import MainLayout from "../../MainLayout";
 import { Box, Button, Divider, Grid, Link, Paper, Stack, styled, TextField } from "@mui/material";
 import { Check, CloudUpload, Search } from "@mui/icons-material";
 import React, { } from 'react';
-import { router } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 import PageHeader from "../../Components/Common/PageHeader";
-import { debounce } from "lodash";
+import { debounce, includes } from "lodash";
+import AutocompleteDepartment from "../../Components/Common/AutocompleteDepartment";
 
 const CustomToolbar = () => <GridToolbarContainer>
     <GridToolbarExport printOptions={{ disableToolbarButton: true }} />
@@ -24,8 +25,15 @@ const VisuallyHiddenInput = styled('input')({
 });
 
 const List = ({ errors, rooms }) => {
+    const { auth: { department: authUserDepartment, roles: authUserRoles } } = usePage().props;
+
     const queryParams = new URLSearchParams(window.location.search);
     const searchKeyParam = queryParams.get('searchKey');
+    const departmentParam = queryParams.get('filters[department][id]');
+
+    const defaultDepartmentId = departmentParam ?? (!includes(authUserRoles, 'Super Admin') ? authUserDepartment?.id : null);
+    const [selectedDepartmentId, setSelectedDepartmentId] = React.useState(defaultDepartmentId ?? null);
+
 
     const [paginationModel, setPaginationModel] = React.useState({
         page: rooms?.meta ? rooms.meta.current_page - 1 : 0,
@@ -48,6 +56,14 @@ const List = ({ errors, rooms }) => {
         };
         if (searchKeyParam) {
             params = { ...params, searchKey: searchKeyParam };
+        }
+        if (selectedDepartmentId) {
+            params = {
+                ...params,
+                filters: {
+                    department: { id: selectedDepartmentId }
+                }
+            };
         }
         router.get('/rooms', params, {
             preserveScroll: true,
@@ -108,22 +124,57 @@ const List = ({ errors, rooms }) => {
         });
     };
 
+    // Use a stable debounced function, not depending on paginationModel to avoid recreation on every render
     const debouncedQuickSearch = React.useMemo(
-        () => debounce((newSearchKey, paginationModel) => {
+        () => debounce((newSearchKey, page, pageSize) => {
             let params = {
-                page: paginationModel.page + 1,
-                per_page: paginationModel.pageSize,
+                page: 1,
+                per_page: pageSize,
             };
             if (newSearchKey) {
                 params = { ...params, searchKey: newSearchKey };
             }
+            if (selectedDepartmentId) {
+                params = {
+                    ...params,
+                    filters: {
+                        department: { id: selectedDepartmentId }
+                    }
+                };
+            }
             router.get('/rooms', params, { preserveScroll: true });
         }, 400),
-        [paginationModel]
+        []
     );
 
-    const handleQuickSearch = (event) => {
-        debouncedQuickSearch(event.currentTarget.value, paginationModel);
+    const handleQuickSearch = React.useCallback((event) => {
+        debouncedQuickSearch(event.target.value, paginationModel.page, paginationModel.pageSize);
+    }, [debouncedQuickSearch, paginationModel.page, paginationModel.pageSize]);
+
+    const handleChangeDepartment = (department) => {
+        setSelectedDepartmentId(department?.id);
+
+        let params = {
+            page: 1,
+            per_page: paginationModel.pageSize,
+        };
+
+        if (searchKeyParam) {
+            params = { ...params, searchKey: searchKeyParam };
+        }
+
+        if (department) {
+            params = {
+                ...params,
+                filters: {
+                    department: { id: department?.id }
+                }
+            };
+        }
+
+        router.get('/rooms', params, {
+            preserveScroll: true,
+        });
     };
 
     return (
@@ -138,7 +189,31 @@ const List = ({ errors, rooms }) => {
                         size="small"
                         slotProps={{
                             input: {
-                                startAdornment: <Search />
+                                startAdornment: <Search />,
+                                endAdornment: (
+                                    searchKeyParam ? (
+                                        <Button
+                                            size="small"
+                                            onClick={() => {
+                                                let params = {
+                                                    page: 1,
+                                                    per_page: paginationModel.pageSize,
+                                                };
+                                                if (selectedDepartmentId) {
+                                                    params = {
+                                                        ...params,
+                                                        filters: {
+                                                            department: { id: selectedDepartmentId }
+                                                        }
+                                                    };
+                                                }
+                                                router.get('/rooms', params, { preserveScroll: true });
+                                            }}
+                                        >
+                                            Clear
+                                        </Button>
+                                    ) : null
+                                ),
                             }
                         }}
                         inputRef={input => {
@@ -166,35 +241,44 @@ const List = ({ errors, rooms }) => {
                 </Grid>
                 <Grid size={3}>
                     <Paper sx={{ marginBottom: 2, padding: 2 }}>
-                        <Box component="form" marginBottom={2} onSubmit={handleImport}>
-                            <Stack spacing={2}>
-                                <Button
-                                    component="label"
-                                    role={undefined}
-                                    variant="outlined"
-                                    tabIndex={-1}
-                                    startIcon={<CloudUpload />}
-                                    onSubmit={handleImport}
-                                >
-                                    Upload Rooms
-                                    <VisuallyHiddenInput type="file" name="rooms" />
-                                </Button>
-                                {!!errors.rooms ? <p style={{ color: 'red' }}>{errors.rooms}</p> : null}
-                                <Button
-                                    type="submit"
-                                    variant="contained"
-                                >
-                                    Import
-                                </Button>
-                            </Stack>
-                        </Box>
-                        <Link
-                            href="/import-templates/rooms"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            Dowload Template
-                        </Link>
+                        <AutocompleteDepartment
+                            key={`selected-department-${selectedDepartmentId ?? 0}`}
+                            defaultDepartmentId={selectedDepartmentId}
+                            readOnly={!['Super Admin', 'HR Admin', 'Room Admin'].some(role => includes(authUserRoles, role))}
+                            onChange={handleChangeDepartment}
+                        />
+                        {['Super Admin', 'Room Admin'].some(role => includes(authUserRoles, role)) && <React.Fragment>
+                            <Divider sx={{ mb: 2 }} />
+                            <Box component="form" marginBottom={2} onSubmit={handleImport}>
+                                <Stack spacing={2}>
+                                    <Button
+                                        component="label"
+                                        role={undefined}
+                                        variant="outlined"
+                                        tabIndex={-1}
+                                        startIcon={<CloudUpload />}
+                                        onSubmit={handleImport}
+                                    >
+                                        Upload Rooms
+                                        <VisuallyHiddenInput type="file" name="rooms" />
+                                    </Button>
+                                    {!!errors.rooms ? <p style={{ color: 'red' }}>{errors.rooms}</p> : null}
+                                    <Button
+                                        type="submit"
+                                        variant="contained"
+                                    >
+                                        Import
+                                    </Button>
+                                </Stack>
+                            </Box>
+                            <Link
+                                href="/import-templates/rooms"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Dowload Template
+                            </Link>
+                        </React.Fragment>}
                     </Paper>
                 </Grid>
             </Grid>

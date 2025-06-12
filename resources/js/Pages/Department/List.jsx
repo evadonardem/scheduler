@@ -3,8 +3,9 @@ import MainLayout from "../../MainLayout";
 import { Box, Button, Grid, Link, Paper, Stack, styled } from "@mui/material";
 import { CloudUpload } from "@mui/icons-material";
 import React from 'react';
-import { router } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 import PageHeader from "../../Components/Common/PageHeader";
+import { includes } from "lodash";
 
 const CustomToolbar = () => <GridToolbarContainer>
     <GridToolbarExport printOptions={{ disableToolbarButton: true }} />
@@ -23,6 +24,8 @@ const VisuallyHiddenInput = styled('input')({
 });
 
 const List = ({ departments }) => {
+    const { auth: { roles: authUserRoles } } = usePage().props;
+
     const [paginationModel, setPaginationModel] = React.useState({
         page: departments?.meta ? departments.meta.current_page - 1 : 0,
         pageSize: departments?.meta?.per_page || -1,
@@ -74,7 +77,7 @@ const List = ({ departments }) => {
         <React.Fragment>
             <PageHeader title="Departments" />
             <Grid container spacing={2}>
-                <Grid size={9}>
+                <Grid size={!['Super Admin'].some(role => includes(authUserRoles, role)) ? 12 : 9}>
                     <DataGrid
                         columns={columns}
                         density="compact"
@@ -88,38 +91,40 @@ const List = ({ departments }) => {
                         disableColumnMenu
                     />
                 </Grid>
-                <Grid size={3}>
-                    <Paper sx={{ marginBottom: 2, padding: 2 }}>
-                        <Box component="form" marginBottom={2} onSubmit={handleImport}>
-                            <Stack spacing={2}>
-                                <Button
-                                    component="label"
-                                    role={undefined}
-                                    variant="outlined"
-                                    tabIndex={-1}
-                                    startIcon={<CloudUpload />}
-                                    onSubmit={handleImport}
-                                >
-                                    Upload Departments
-                                    <VisuallyHiddenInput type="file" name="departments" />
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    variant="contained"
-                                >
-                                    Import
-                                </Button>
-                            </Stack>
-                        </Box>
-                        <Link
-                            href="/import-templates/departments"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            Dowload Template
-                        </Link>
-                    </Paper>
-                </Grid>
+                {['Super Admin'].some(role => includes(authUserRoles, role)) && <React.Fragment>
+                    <Grid size={3}>
+                        <Paper sx={{ marginBottom: 2, padding: 2 }}>
+                            <Box component="form" marginBottom={2} onSubmit={handleImport}>
+                                <Stack spacing={2}>
+                                    <Button
+                                        component="label"
+                                        role={undefined}
+                                        variant="outlined"
+                                        tabIndex={-1}
+                                        startIcon={<CloudUpload />}
+                                        onSubmit={handleImport}
+                                    >
+                                        Upload Departments
+                                        <VisuallyHiddenInput type="file" name="departments" />
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        variant="contained"
+                                    >
+                                        Import
+                                    </Button>
+                                </Stack>
+                            </Box>
+                            <Link
+                                href="/import-templates/departments"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Dowload Template
+                            </Link>
+                        </Paper>
+                    </Grid>
+                </React.Fragment>}
             </Grid>
 
 

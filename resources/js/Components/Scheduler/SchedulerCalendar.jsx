@@ -473,11 +473,11 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
           room: null,
         });
       }}
-      readOnly={!includes(authUserRoles, 'Super Admin')}
+      readOnly={!['Super Admin', 'HR Admin', 'Room Admin'].some(role => includes(authUserRoles, role))}
       renderInput={(params) => <TextField {...params} label="Department" size="small" />}
       sx={{ mb: 2 }}
-    />
-    {calendarView === Views.WEEK && <Autocomplete
+        />
+        {calendarView === Views.WEEK && <Autocomplete
       key={`room-${filters?.department?.id ?? 0}`}
       disablePortal
       fullWidth

@@ -42,7 +42,7 @@ const UserRoleSelect = React.memo(({ row = {} }) => {
         renderValue={(selected) => selected.join(', ')}
         onChange={handleChangeRoles}
     >
-        {['Super Admin', 'Faculty', 'Dean', 'Associate Dean'].map((role) => (
+        {['Super Admin', 'Faculty', 'Dean', 'Associate Dean', 'Room Admin', 'HR Admin'].map((role) => (
             <MenuItem key={role} value={role} disabled={['Super Admin', 'Faculty'].includes(role)}>
                 <Checkbox checked={roles.includes(role)} />
                 <ListItemText primary={role} />
@@ -52,7 +52,7 @@ const UserRoleSelect = React.memo(({ row = {} }) => {
 });
 
 const List = ({ errors, users }) => {
-    const { auth: { department: authUserDepartment, roles: authUserRoles } } = usePage().props;
+    const { auth: { id: authId, department: authUserDepartment, roles: authUserRoles } } = usePage().props;
 
     const queryParams = new URLSearchParams(window.location.search);
     const searchKeyParam = queryParams.get('searchKey');
@@ -235,7 +235,7 @@ const List = ({ errors, users }) => {
     };
 
     React.useEffect(() => {
-        if (departmentParam && !includes(authUserRoles, 'Super Admin')) {
+        if (departmentParam && !['Super Admin', 'HR Admin'].some(role => includes(authUserRoles, role))) {
             window.location.replace('/users');
         }
     }, []);
@@ -246,9 +246,6 @@ const List = ({ errors, users }) => {
             debouncedQuickSearch.cancel();
         };
     }, [debouncedQuickSearch]);
-
-    console.log('authUserDepartment', authUserDepartment);
-    console.log('selectedDepartmentId', selectedDepartmentId);
 
     return (
         <React.Fragment>
@@ -302,6 +299,11 @@ const List = ({ errors, users }) => {
                             columns={columns}
                             density="compact"
                             editMode="row"
+                            isCellEditable={(params) => {
+                                const { field, row } = params;
+                                return ['Super Admin', 'HR Admin'].some(role => includes(authUserRoles, role)) &&
+                                    (field === 'roles' && row.id !== authId || ['last_name', 'first_name'].includes(field));
+                            }}
                             onPaginationModelChange={handlePaginationChange}
                             pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
                             paginationMode="server"
@@ -318,39 +320,41 @@ const List = ({ errors, users }) => {
                         <AutocompleteDepartment
                             key={`selected-department-${selectedDepartmentId ?? 0}`}
                             defaultDepartmentId={selectedDepartmentId}
-                            readOnly={!includes(authUserRoles, 'Super Admin')}
+                            readOnly={!['Super Admin', 'HR Admin'].some(role => includes(authUserRoles, role))}
                             onChange={handleChangeDepartment}
                         />
-                        <Divider sx={{ mb: 2 }}/>
-                        <Box component="form" marginBottom={2} onSubmit={handleImport}>
-                            <Stack spacing={2}>
-                                <Button
-                                    component="label"
-                                    role={undefined}
-                                    variant="outlined"
-                                    tabIndex={-1}
-                                    startIcon={<CloudUpload />}
-                                    onSubmit={handleImport}
-                                >
-                                    Upload Users
-                                    <VisuallyHiddenInput type="file" name="users" />
-                                </Button>
-                                {!!errors.users ? <p style={{ color: 'red' }}>{errors.users}</p> : null}
-                                <Button
-                                    type="submit"
-                                    variant="contained"
-                                >
-                                    Import
-                                </Button>
-                            </Stack>
-                        </Box>
-                        <Link
-                            href="/import-templates/users"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            Dowload Template
-                        </Link>
+                        {['Super Admin', 'HR Admin'].some(role => includes(authUserRoles, role)) && <React.Fragment>
+                            <Divider sx={{ mb: 2 }} />
+                            <Box component="form" marginBottom={2} onSubmit={handleImport}>
+                                <Stack spacing={2}>
+                                    <Button
+                                        component="label"
+                                        role={undefined}
+                                        variant="outlined"
+                                        tabIndex={-1}
+                                        startIcon={<CloudUpload />}
+                                        onSubmit={handleImport}
+                                    >
+                                        Upload Users
+                                        <VisuallyHiddenInput type="file" name="users" />
+                                    </Button>
+                                    {!!errors.users ? <p style={{ color: 'red' }}>{errors.users}</p> : null}
+                                    <Button
+                                        type="submit"
+                                        variant="contained"
+                                    >
+                                        Import
+                                    </Button>
+                                </Stack>
+                            </Box>
+                            <Link
+                                href="/import-templates/users"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Dowload Template
+                            </Link>
+                        </React.Fragment>}
                     </Paper>
                 </Grid>
             </Grid>

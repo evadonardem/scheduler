@@ -25,6 +25,7 @@ class RoomController extends Controller
     {
         $perPage = $request->input('per_page', 5);
         $searchKey = $request->input('searchKey');
+        $departmentId = $request->input('filters.department.id');
 
         $roomsQuery = $this->roomModel->newQuery();
 
@@ -32,6 +33,13 @@ class RoomController extends Controller
             $roomsQuery->where(function (Builder $query) use ($searchKey) {
                 $query->where('code', 'like', "%$searchKey%");
                 $query->orWhere('name', 'like', "%$searchKey%");
+            });
+        }
+
+        if ($departmentId) {
+            $roomsQuery->whereHas('defaultOwnerDepartment', function ($query) use ($departmentId) {
+                $relationTable = $query->getModel()->getTable();
+                $query->where("$relationTable.id", $departmentId);
             });
         }
 

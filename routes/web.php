@@ -98,7 +98,7 @@ Route::middleware('auth')->group(function () {
     Route::group([
         'prefix' => '/departments',
         'middleware' => [
-            'role:Super Admin',
+            'role:Super Admin|HR Admin|Room Admin',
         ],
     ], static function () {
         Route::get('/', [DepartmentController::class, 'index']);
@@ -116,7 +116,7 @@ Route::middleware('auth')->group(function () {
     Route::group([
         'prefix' => '/rooms',
         'middleware' => [
-            'role:Super Admin',
+            'role:Super Admin|HR Admin|Room Admin',
         ],
     ], static function () {
         Route::get('/', [RoomController::class, 'index'])->name('rooms.list');
@@ -126,7 +126,7 @@ Route::middleware('auth')->group(function () {
     Route::group([
         'prefix' => '/users',
         'middleware' => [
-            'role:Super Admin|Dean|Associate Dean',
+            'role:Super Admin|Dean|Associate Dean|HR Admin',
         ],
     ], static function () {
         Route::get('/', [UserController::class, 'index'])->name('users.list');

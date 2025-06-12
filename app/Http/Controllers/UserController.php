@@ -83,9 +83,6 @@ class UserController extends Controller
             $department = $this->departmentModel->newQuery()
                 ->where('code', $row[5])
                 ->first();
-            if (! $department) {
-                continue;
-            }
             $data[] = [
                 'institution_id' => $row[0],
                 'last_name' => $row[1],
@@ -96,7 +93,7 @@ class UserController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
-            $userDepartments[$row[0]] = $department->id;
+            $userDepartments[$row[0]] = $department ? $department->id : null;
         }
         fclose($fileHandle);
 
@@ -111,7 +108,7 @@ class UserController extends Controller
             $user = $this->userModel->newQuery()
                 ->where('institution_id', $userInstitutionId)
                 ->first();
-            if ($user) {
+            if ($user && $departmentId) {
                 $user->departments()->attach($departmentId);
                 if (! $user->hasRole('Faculty')) {
                     $user->assignRole('Faculty');

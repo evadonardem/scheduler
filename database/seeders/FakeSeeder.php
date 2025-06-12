@@ -62,6 +62,22 @@ class FakeSeeder extends Seeder
         $defaultUser->assignRole('Dean');
         $defaultUser->assignRole('Super Admin');
 
+        // Fake HR Admin User
+        $hrAdminUser = $this->user->factory()->create([
+            'first_name' => 'HR',
+            'last_name' => 'Admin',
+            'password' => Hash::make('123456'),
+        ]);
+        $hrAdminUser->assignRole('HR Admin');
+
+        // Fake Room Admin User
+        $roomAdminUser = $this->user->factory()->create([
+            'first_name' => 'Room',
+            'last_name' => 'Admin',
+            'password' => Hash::make('123456'),
+        ]);
+        $roomAdminUser->assignRole('Room Admin');
+
         $this->command->line('Create fake departments, courses, subjects, rooms, and users...');
         $departmentsData = [
             [

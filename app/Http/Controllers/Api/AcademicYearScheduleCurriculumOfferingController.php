@@ -53,7 +53,7 @@ class AcademicYearScheduleCurriculumOfferingController extends Controller
                 $query->where('curriculum_id', $curriculum->id);
             });
 
-        if (! $authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean']))) {
+        if (! $authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean', 'HR Admin']))) {
             $subjectClassesQuery->where('assigned_to_user_id', $authUser->id);
         }
 

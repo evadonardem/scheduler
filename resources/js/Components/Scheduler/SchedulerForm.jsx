@@ -459,7 +459,7 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
               onChange={(_event, value) => {
                 setSelectedDepartment(value);
               }}
-              readOnly={!includes(authUserRoles, 'Super Admin')}
+              readOnly={!['Super Admin', 'HR Admin'].some(role => includes(authUserRoles, role))}
               renderInput={(params) => <TextField {...params} label="Department" size="small" />}
             />
           </Grid>
