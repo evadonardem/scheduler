@@ -272,6 +272,7 @@ const List = ({ academicYearSchedules, errors }) => {
                     >
                         <MenuItem value="1">1st Semester</MenuItem>
                         <MenuItem value="2">2nd Semester</MenuItem>
+                        <MenuItem value="3">3rd Semester</MenuItem>
                     </TextField>
                     {errors?.academic_year && <Alert sx={{ mb: 2 }} severity="error">{errors?.academic_year}</Alert>}
                     <Divider sx={{ mb: 2 }} />
