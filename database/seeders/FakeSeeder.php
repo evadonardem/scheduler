@@ -696,5 +696,26 @@ class FakeSeeder extends Seeder
             $this->command->info('Done! Fake subject classes created.');
             $defaultUser->departments()->sync(Department::where('code', 'CIT')->first()->id);
         }
+
+        // Panel admin accounts
+        foreach (range(1, 5) as $i) {
+            // Default User
+            $panelAccount = $this->user->newQuery()
+                ->firstOrCreate(
+                    [
+                        'email' => "panel$i.admin@kcp.edu.ph",
+                    ],
+                    [
+                        'institution_id' => fake()->numerify('###########'),
+                        'first_name' => "Panel$i",
+                        'last_name' => 'Admin',
+                        'gender' => 'Male',
+                        'password' => Hash::make('123456'),
+                    ]
+                );
+            $panelAccount->assignRole('Faculty');
+            $panelAccount->assignRole('Super Admin');
+            $panelAccount->departments()->sync(Department::where('code', 'CIT')->first()->id);
+        }
     }
 }
