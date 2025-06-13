@@ -28,6 +28,7 @@ return new class extends Migration
                 ->onUpdate('cascade');
             $table->float('credit_hours');
             $table->unsignedTinyInteger('section');
+            $table->unsignedTinyInteger('capacity')->default(0);
             $table->boolean('is_block')->default(false);
             $table->json('schedule')->nullable();
             $table->foreignIdFor(User::class, 'assigned_to_user_id')

@@ -21,6 +21,7 @@ class SubjectClassResource extends JsonResource
                 'id' => $this->section,
                 'course' => CourseResource::make($course),
                 'year_level' => $curriculumSubject->year_level,
+                'capacity' => $this->capacity,
                 'is_block' => (bool) $this->is_block,
             ],
             'color' => '#'.substr(md5($this->code), 0, 6),

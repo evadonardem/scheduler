@@ -7,7 +7,7 @@ import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import PropTypes from "prop-types";
 import axios from "axios";
 import { clone, find, includes } from "lodash";
-import { AvTimer, CalendarMonth, Event, Menu, Person, RoomPreferences, School, Subject } from "@mui/icons-material";
+import { AvTimer, CalendarMonth, Event, Menu, People, Person, RoomPreferences, School, Subject } from "@mui/icons-material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { Link, usePage } from "@inertiajs/react";
 
@@ -54,6 +54,7 @@ const EventTooltip = React.memo(({ text, subjectClass, ellipsisText = true, plac
       },
       year_level: yearLevel,
       is_block: isBlock,
+      capacity
     },
     schedule,
     assigned_to: assignedTo
@@ -76,6 +77,7 @@ const EventTooltip = React.memo(({ text, subjectClass, ellipsisText = true, plac
           <Divider sx={{ color: { color }, my: 2 }} />
           <Stack spacing={1}>
             <Chip icon={<School />} label={`${courseCode} ${yearLevel} (${isBlock ? "Blk." : ""} Sec. ${sectionId})`} />
+            <Chip icon={<People />} label={`Size: ${capacity}`} />
             <Chip icon={<Person />} label={`${assignedTo ? `${assignedToLastName}, ${assignedToFirstName}` : "(Unassigned)"}`} />
             <Chip icon={<AvTimer />} label={`Credit Hrs.: ${Number(creditHours).toFixed(2)}`} />
           </Stack>
@@ -476,13 +478,13 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
       readOnly={!['Super Admin', 'HR Admin', 'Room Admin'].some(role => includes(authUserRoles, role))}
       renderInput={(params) => <TextField {...params} label="Department" size="small" />}
       sx={{ mb: 2 }}
-        />
-        {calendarView === Views.WEEK && <Autocomplete
+    />
+    {calendarView === Views.WEEK && <Autocomplete
       key={`room-${filters?.department?.id ?? 0}`}
       disablePortal
       fullWidth
       defaultValue={filters?.room ?? null}
-      getOptionLabel={(option) => `${option.code} - ${option.name}`}
+      getOptionLabel={(option) => `${option.code} - ${option.name} ${option.capacity ? `(Capacity: ${option.capacity})` : ""}`}
       options={rooms}
       onChange={(_event, value) => {
         rememberScollPosition({ calendarTimeContent: false, unscheduledSubjectClassesContent: true });
@@ -650,7 +652,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
     );
     const memoizedResourceHeaderComponent = useCallback(
       ({ resource }) => {
-        const { code, name, department: { code: departmentCode } } = resource;
+        const { code, name, capacity } = resource;
         return <Box
           ref={(el) => (resourceRefs.current[resource.id] = el)}
           bgcolor={resource.color ? `${resource.color}88` : 'inherit'}
@@ -664,7 +666,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
             },
           }}
         >
-          <Chip label={`(${code}) ${name}`} icon={<RoomPreferences sx={{ fontSize: 22 }} />} color="default" sx={{ fontSize: 11 }} />
+          <Chip label={`(${code}) ${name} ${capacity ? `(Capacity: ${capacity})` : ''}`} icon={<RoomPreferences sx={{ fontSize: 22 }} />} color="default" sx={{ fontSize: 11 }} />
         </Box>;
       },
       []

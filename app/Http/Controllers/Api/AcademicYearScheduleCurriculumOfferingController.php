@@ -163,6 +163,7 @@ class AcademicYearScheduleCurriculumOfferingController extends Controller
     ) {
         $yearLevel = $request->input('year_level');
         $semesterId = $request->input('semester_id');
+        $sectionCapacity = $request->input('section_capacity') ?? 0;
         $maxSection = $academicYearSchedule
             ->subjectClasses()
             ->where('academic_year_schedule_id', $academicYearSchedule->id)
@@ -178,7 +179,7 @@ class AcademicYearScheduleCurriculumOfferingController extends Controller
             ->get();
 
         $newSection = $maxSection + 1;
-        $newSubjectClasses = $subjects->map(function ($subject) use ($academicYearSchedule, $newSection, $semesterId) {
+        $newSubjectClasses = $subjects->map(function ($subject) use ($academicYearSchedule, $newSection, $semesterId, $sectionCapacity) {
             return [
                 'code' => $subject->code.'-'.
                     substr(strtoupper(md5($academicYearSchedule->academic_year.$semesterId.$subject->id.now())), 0, 3),
@@ -187,6 +188,7 @@ class AcademicYearScheduleCurriculumOfferingController extends Controller
                 'credit_hours' => $subject->pivot->credit_hours,
                 'section' => $newSection,
                 'is_block' => true,
+                'capacity' => $sectionCapacity,
             ];
         })->toArray();
 

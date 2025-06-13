@@ -5,8 +5,9 @@ import { Check, CloudUpload, Search } from "@mui/icons-material";
 import React, { } from 'react';
 import { router, usePage } from "@inertiajs/react";
 import PageHeader from "../../Components/Common/PageHeader";
-import { debounce, includes } from "lodash";
+import { debounce, includes, isEqual, pickBy } from "lodash";
 import AutocompleteDepartment from "../../Components/Common/AutocompleteDepartment";
+import axios from "axios";
 
 const CustomToolbar = () => <GridToolbarContainer>
     <GridToolbarExport printOptions={{ disableToolbarButton: true }} />
@@ -74,7 +75,7 @@ const List = ({ errors, rooms }) => {
     const columns = [
         {
             field: 'code',
-            flex: 0.25,
+            flex: 0.125,
             headerName: 'Code',
             sortable: false,
         },
@@ -83,6 +84,7 @@ const List = ({ errors, rooms }) => {
             flex: 0.5,
             headerName: 'Name',
             sortable: false,
+            editable: true,
         },
         {
             field: 'is_lec',
@@ -101,6 +103,14 @@ const List = ({ errors, rooms }) => {
             renderCell: (cell) => {
                 return !!cell.value && <Check />;
             }
+        },
+        {
+            field: 'capacity',
+            flex: 0.125,
+            headerName: 'Capacity',
+            sortable: false,
+            editable: true,
+            type: 'number',
         },
         {
             field: 'department',
@@ -150,6 +160,16 @@ const List = ({ errors, rooms }) => {
     const handleQuickSearch = React.useCallback((event) => {
         debouncedQuickSearch(event.target.value, paginationModel.page, paginationModel.pageSize);
     }, [debouncedQuickSearch, paginationModel.page, paginationModel.pageSize]);
+
+    const processRowUpdate = React.useCallback(async (updateRow, originalRow) => {
+        const diff = pickBy(updateRow, (value, key) => !isEqual(value, originalRow[key]));
+        const response = await axios.patch(
+            `/rooms/${updateRow.id}`,
+            diff,
+        );
+        const { data: updatedRow } = response.data;
+        return updatedRow;
+    }, []);
 
     const handleChangeDepartment = (department) => {
         setSelectedDepartmentId(department?.id);
@@ -228,10 +248,17 @@ const List = ({ errors, rooms }) => {
                         <DataGrid
                             columns={columns}
                             density="compact"
+                            editMode="row"
+                            isCellEditable={(params) => {
+                                const { field, row } = params;
+                                return ['Super Admin', 'Room Admin'].some(role => includes(authUserRoles, role)) &&
+                                    ['name', 'capacity'].includes(field);
+                            }}
                             onPaginationModelChange={handlePaginationChange}
                             pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
                             paginationMode="server"
                             paginationModel={paginationModel}
+                            processRowUpdate={processRowUpdate}
                             rowCount={rowCount}
                             rows={rooms.data}
                             slots={{ toolbar: CustomToolbar }}

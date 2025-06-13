@@ -548,6 +548,7 @@ class FakeSeeder extends Seeder
                     'name' => $roomsData[$department->code][$sequence->index]['name'],
                     'is_lec' => $roomsData[$department->code][$sequence->index]['is_lec'],
                     'is_lab' => $roomsData[$department->code][$sequence->index]['is_lab'],
+                    'capacity' => fake()->numberBetween(20, 50),
                 ])
                 ->create([
                     'default_owner_department_id' => $department->id,
@@ -680,6 +681,7 @@ class FakeSeeder extends Seeder
                                     'curriculum_subject_id' => $subject->pivot->id,
                                     'credit_hours' => $creditHours,
                                     'section' => $sequence->index + 1,
+                                    'capacity' => fake()->numberBetween(20, 40),
                                     'is_block' => true,
                                     'schedule' => $schedule,
                                     'assigned_to_user_id' => $isAssigned ? $user->id : null,

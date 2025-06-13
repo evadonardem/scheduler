@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Accordion, AccordionDetails, AccordionSummary, Autocomplete, Backdrop, Badge, Box, Button, Chip, CircularProgress, Collapse, Divider, Grid, IconButton, Paper, Switch, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, TextField, Typography } from "@mui/material";
-import { ArrowDownward, Class, Delete, Event, KeyboardArrowDown, KeyboardArrowUp, Person, Star } from "@mui/icons-material";
+import { ArrowDownward, Class, Delete, Event, KeyboardArrowDown, KeyboardArrowUp, People, Person, Star } from "@mui/icons-material";
 import PropTypes from 'prop-types';
 import axios, { CanceledError } from 'axios';
 import { countBy, find, first, includes, keyBy, uniqueId } from 'lodash';
@@ -283,12 +283,13 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
     );
   };
 
-  const createCurriculumOfferings = async (curriculum, yearLevel, semesterId) => {
+  const createCurriculumOfferings = async (curriculum, yearLevel, semesterId, sectionCapacity) => {
     return await axios.post(
       `/api/academic-year-schedules/${academicYearScheduleId}/course-curricula/${curriculum.id}/offerings`,
       {
         year_level: yearLevel,
         semester_id: semesterId,
+        section_capacity: sectionCapacity,
       },
       {
         headers: {
@@ -343,8 +344,8 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
     setCurriculumOfferings(curriculumOfferingsKeyByYearLevel);
   }, []);
 
-  const handleCreateBlockSection = useCallback(async (curriculum, yearLevel, semesterId) => {
-    await createCurriculumOfferings(curriculum, yearLevel, semesterId);
+  const handleCreateBlockSection = useCallback(async (curriculum, yearLevel, semesterId, sectionCapacity) => {
+    await createCurriculumOfferings(curriculum, yearLevel, semesterId, sectionCapacity);
     setProcessingBlockSection(false);
   }, []);
 
@@ -566,10 +567,17 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                             {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) && <TableFooter>
                               <TableRow>
                                 <TableCell colSpan={5} align="center">
-                                  <Button fullWidth variant="contained" onClick={() => {
+                                  <Paper component="form" sx={{ p: 2 }} onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const formData = new FormData(e.target);
+                                    const sectionCapacity = formData.get('section_capacity');
                                     setProcessingBlockSection(true);
-                                    handleCreateBlockSection(selectedCurriculum, yearLevel, semester.id);
-                                  }}>Create Block Section</Button>
+                                    handleCreateBlockSection(selectedCurriculum, yearLevel, semester.id, sectionCapacity);
+                                    e.target.reset();
+                                  }}>
+                                    <TextField type="number" name="section_capacity" size="small" label="Size" fullWidth sx={{ mb: 2 }} />
+                                    <Button fullWidth variant="contained" type="submit">Create Block Section</Button>
+                                  </Paper>
                                 </TableCell>
                               </TableRow>
                             </TableFooter>}
@@ -585,21 +593,33 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
                               unscheduled,
                             },
                           } = section;
+
+                          const allSubjectClasses = [...scheduled, ...unscheduled];
+                          const firstSubjectClass = first(allSubjectClasses);
+                          const capacity = firstSubjectClass.section.capacity;
+
                           return <Accordion key={`year-level-${yearLevel}-section-${sectionId}`}>
                             <AccordionSummary
                               expandIcon={<ArrowDownward />}
                             >
                               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, width: '100%' }}>
-                                <Typography component="span">Blk. Sec. {sectionId}</Typography>
-                                {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) &&
-                                  index === sectionsBySemester.length - 1 &&
-                                  <IconButton color="primary" onClick={(e) => {
-                                    e.stopPropagation();
-                                    setProcessingBlockSection(true);
-                                    handleDeleteBlockSection(selectedCurriculum, yearLevel, sectionId);
-                                  }}>
-                                    <Delete />
-                                  </IconButton>}
+                                <Box>
+                                  <Typography component="span">Blk. Sec. {sectionId}</Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Badge badgeContent={`${capacity}`} color="primary" sx={{ mt: 1, mr: 2 }}>
+                                    <People color="action" />
+                                  </Badge>
+                                  {['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) &&
+                                    index === sectionsBySemester.length - 1 &&
+                                    <IconButton color="primary" sx={{ p: 0, m: 0 }} onClick={(e) => {
+                                      e.stopPropagation();
+                                      setProcessingBlockSection(true);
+                                      handleDeleteBlockSection(selectedCurriculum, yearLevel, sectionId);
+                                    }}>
+                                      <Delete />
+                                    </IconButton>}
+                                </Box>
                               </Box>
                             </AccordionSummary>
                             <AccordionDetails>

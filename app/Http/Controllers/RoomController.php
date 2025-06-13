@@ -142,7 +142,18 @@ class RoomController extends Controller
      */
     public function update(UpdateRoomRequest $request, Room $room)
     {
-        //
+        $data = $request->only([
+            'name',
+            'capacity',
+        ]);
+
+        if ($data) {
+            $room->update($data);
+        }
+
+        $room->refresh();
+
+        return RoomResource::make($room);
     }
 
     /**

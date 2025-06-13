@@ -16,6 +16,7 @@ class RoomResource extends JsonResource
             'name' => $this->name,
             'is_lec' => $this->is_lec,
             'is_lab' => $this->is_lab,
+            'capacity' => $this->capacity,
             'department' => DepartmentResource::make($this->defaultOwnerDepartment),
         ];
     }

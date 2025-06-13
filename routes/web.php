@@ -121,6 +121,7 @@ Route::middleware('auth')->group(function () {
     ], static function () {
         Route::get('/', [RoomController::class, 'index'])->name('rooms.list');
         Route::post('/', [RoomController::class, 'store']);
+        Route::patch('/{room}', [RoomController::class, 'update']);
     });
 
     Route::group([
