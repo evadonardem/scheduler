@@ -25,6 +25,10 @@ class SubjectClassResource extends JsonResource
                 'is_block' => (bool) $this->is_block,
             ],
             'color' => '#'.substr(md5($this->code), 0, 6),
+            'curriculum' => [
+                'id' => $curriculum->id,
+                'code' => $curriculum->code,
+            ],
             'curriculum_subject' => $this->whenNotNull($this->whenPivotLoaded('curriculum_subject', null, [
                 'id' => $curriculumSubject->id,
                 'units_lec' => $curriculumSubject->units_lec,

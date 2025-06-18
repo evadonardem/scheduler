@@ -5,6 +5,8 @@ namespace App\Http\Middleware;
 use App\Http\Resources\DepartmentResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Session;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -42,7 +44,7 @@ class HandleInertiaRequests extends Middleware
 
         $appMenu = [];
         if (Auth::check()) {
-            request()->user()?->tokens()->where('created_at', '<', now())->delete();
+            request()->user()?->tokens()->where('created_at', '<', now()->subDays(7))->delete();
 
             $authUserRoles = $user->roles->pluck('name');
 
@@ -134,6 +136,13 @@ class HandleInertiaRequests extends Middleware
             }
         }
 
+        $token = null;
+        if (request()->user()) {
+            $sessionId = Session::getId();
+            $tokenKey = "token-$sessionId";
+            $token = Cache::remember($tokenKey, 60, fn () => request()->user()?->createToken('scheduler')->plainTextToken);
+        }
+
         return array_merge(parent::share($request), [
             'appName' => config('app.name'),
             'appMenu' => $appMenu,
@@ -144,7 +153,7 @@ class HandleInertiaRequests extends Middleware
                 'department' => $department ? DepartmentResource::make($department)->toArray(request()) : null,
                 'roles' => Auth::user()->roles->pluck('name'),
                 'permissions' => Auth::user()->permissions,
-                'token' => request()->user()?->createToken('scheduler')->plainTextToken,
+                'token' => $token,
             ] : null,
             'flashMessage' => $request->session()->get('scheduler-flash-message'),
         ]);

@@ -43,6 +43,7 @@ const EventTooltip = React.memo(({ text, subjectClass, ellipsisText = true, plac
     color,
     code: subjectClassCode,
     credit_hours: creditHours,
+    curriculum: { code: curriculumCode },
     subject: {
       code: subjectCode,
       title: subjectTitle,
@@ -77,6 +78,7 @@ const EventTooltip = React.memo(({ text, subjectClass, ellipsisText = true, plac
           <Divider sx={{ color: { color }, my: 2 }} />
           <Stack spacing={1}>
             <Chip icon={<School />} label={`${courseCode} ${yearLevel} (${isBlock ? "Blk." : ""} Sec. ${sectionId})`} />
+            <Chip icon={<Subject />} label={`${curriculumCode}`} />
             <Chip icon={<People />} label={`Size: ${capacity}`} />
             <Chip icon={<Person />} label={`${assignedTo ? `${assignedToLastName}, ${assignedToFirstName}` : "(Unassigned)"}`} />
             <Chip icon={<AvTimer />} label={`Credit Hrs.: ${Number(creditHours).toFixed(2)}`} />

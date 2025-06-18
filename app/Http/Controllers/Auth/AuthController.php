@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 
 class AuthController extends Controller
@@ -38,8 +40,9 @@ class AuthController extends Controller
 
     public function destroy()
     {
-        cache()->forget('user-'.Auth::id().'-token');
-        cache()->forget('current-user-id');
+        $sessionId = Session::getId();
+        $tokenKey = "token-$sessionId";
+        Cache::forget($tokenKey);
         request()->user()->tokens()->delete();
 
         Auth::logout();
