@@ -6,7 +6,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import PropTypes from "prop-types";
 import axios from "axios";
-import { clone, find, includes } from "lodash";
+import { clone, find, includes, split } from "lodash";
 import { AvTimer, CalendarMonth, Event, Menu, People, Person, RoomPreferences, School, Subject } from "@mui/icons-material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { Link, usePage } from "@inertiajs/react";
@@ -111,7 +111,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
   const [isSchedulerOpen, setIsSchedulerOpen] = useState(false);
 
   // calendar view
-  const [calendarView, setCalendarView] = useState(Views.WEEK);
+  const [calendarView, setCalendarView] = useState(split(`${Views.WEEK}|resource`, '|'));
 
   // calendar positioning
   const calendarRef = useRef(null);
@@ -481,7 +481,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
       renderInput={(params) => <TextField {...params} label="Department" size="small" />}
       sx={{ mb: 2 }}
     />
-    {calendarView === Views.WEEK && <Autocomplete
+    {calendarView[0] === Views.WEEK && <Autocomplete
       key={`room-${filters?.department?.id ?? 0}`}
       disablePortal
       fullWidth
@@ -569,7 +569,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
     <SchedulerFilters />
     {
       ['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) &&
-      calendarView === Views.WEEK &&
+      calendarView[0] === Views.WEEK &&
       filters?.department &&
       unscheduledEvents &&
       <SubjectClassesQueue unscheduledEvents={unscheduledEvents} />
@@ -675,7 +675,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
     );
     const memoizedEventPropGetter = useCallback(
       (event) => {
-        if (calendarView === Views.AGENDA) {
+        if (calendarView[0] === Views.AGENDA) {
           return {};
         }
         return {
@@ -703,8 +703,48 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
       },
     }), []);
     const handleChangeCalendarView = useCallback((e) => {
-      setCalendarView(e.target.value);
+      setCalendarView(split(e.target.value, '|'));
     }, []);
+
+    const defaultView = calendarView[0];
+    const defaultViewType = calendarView[1];
+    const commonProps = {
+      components,
+      defaultView,
+      events,
+      localizer,
+      defaultDate: plottableWeek.start,
+      eventPropGetter: memoizedEventPropGetter,
+      formats: {
+        dayFormat: "ddd",
+      },
+      max: maxTime,
+      min: minTime,
+      onDoubleClickEvent: useCallback(
+        (event) => handleShowEventDialog(event),
+        [academicYearSchedule.subject_classes]
+      ),
+      startAccessor: "start",
+      step: 15,
+      resources: defaultViewType === 'resource' ? resources : null,
+      resourcePropGetter: defaultView === 'resource' ? memoizedResourcePropGetter : {},
+      tooltipAccessor: () => false,
+      endAccessor: "end",
+    };
+    const draggableProps = {
+      draggableAccessor: () => filters?.department ? "id" : false,
+      dragFromOutsideItem: () => false,
+      onDropFromOutside: SchedulerCalendarOnDropFromOutside,
+      onDragOverFromOutside: useCallback(() => {
+        console.log('check being drag over from outside...');
+      }, []),
+      onEventDrop: ['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role))
+        ? SchedulerCalendarOnEventDrop : false,
+    };
+    const calendarInstance = defaultViewType === 'resource'
+      ? <CalendarDragAndDrop {...commonProps} {...draggableProps}/>
+      : <Calendar {...commonProps}/>
+
     return (<Box width={openSchedulerCalendarDrawer ? "70%" : "100%"}>
       <Box>
         <Grid container justifyContent="space-between" alignItems="center">
@@ -716,9 +756,10 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
           </Grid>
           <Grid item>
             <Box display="flex" alignItems="center" justifyContent="flex-end">
-              <RadioGroup row value={calendarView} onChange={handleChangeCalendarView}>
-                <FormControlLabel value={Views.WEEK} control={<Radio />} label="Resource View" />
-                <FormControlLabel value={Views.AGENDA} control={<Radio />} label="Summary View" />
+              <RadioGroup row value={calendarView.join('|')} onChange={handleChangeCalendarView}>
+                <FormControlLabel value={`${Views.WEEK}|summary`} control={<Radio />} label="Summary View" />
+                <FormControlLabel value={`${Views.WEEK}|resource`} control={<Radio />} label="Resource View" />
+                <FormControlLabel value={`${Views.AGENDA}|agenda`} control={<Radio />} label="Agenda View" />
               </RadioGroup>
               <IconButton onClick={toggleSchedulerCalendarDrawer(!openSchedulerCalendarDrawer)}>
                 <Menu />
@@ -732,36 +773,7 @@ const SchedulerCalendar = ({ academicYearScheduleId: defaultAcademicYearSchedule
         onDragOver={(e) => e.preventDefault()}
         sx={{ height: "70vh", overflow: "auto" }}
       >
-        <CalendarDragAndDrop
-          components={components}
-          defaultDate={plottableWeek.start}
-          defaultView={calendarView}
-          draggableAccessor={() => filters?.department ? "id" : false}
-          dragFromOutsideItem={() => false}
-          eventPropGetter={memoizedEventPropGetter}
-          events={events}
-          formats={{
-            dayFormat: "ddd",
-          }}
-          localizer={localizer}
-          max={maxTime}
-          min={minTime}
-          onDoubleClickEvent={useCallback(
-            (event) => handleShowEventDialog(event),
-            [academicYearSchedule.subject_classes]
-          )}
-          onDropFromOutside={SchedulerCalendarOnDropFromOutside}
-          onDragOverFromOutside={useCallback(() => {
-            console.log('check being drag over from outside...');
-          }, [])}
-          onEventDrop={['Super Admin', 'Dean', 'Associate Dean'].some(role => authUserRoles.includes(role)) ? SchedulerCalendarOnEventDrop : false}
-          resources={resources}
-          resourcePropGetter={memoizedResourcePropGetter}
-          startAccessor={"start"}
-          step={15}
-          tooltipAccessor={() => false}
-          endAccessor={"end"}
-        />
+        {calendarInstance}
       </Box>
     </Box>);
   });
