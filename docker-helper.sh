@@ -12,20 +12,20 @@ while true; do
   read -p 'Option: ' option
   case $option in
     1 )
-      docker-compose down && docker-compose up -d
+      docker-compose down && docker-compose pull && docker-compose up -d
       docker-compose exec workspace bash -c "composer update -o"
-      docker-compose exec workspace bash -c "ncu && ncu -u"
-      docker-compose exec workspace bash -c "npm update"
-      docker-compose exec workspace bash -c "npm audit fix"
-      docker-compose exec workspace bash -c "npm run build"
+      docker-compose exec workspace bash -c "source /usr/local/nvm/nvm.sh && ncu && ncu -u"
+      docker-compose exec workspace bash -c "source /usr/local/nvm/nvm.sh && npm update"
+      docker-compose exec workspace bash -c "source /usr/local/nvm/nvm.sh && npm audit fix"
+      docker-compose exec workspace bash -c "source /usr/local/nvm/nvm.sh && npm run build"
       break;;
     2 )
-      docker-compose down -v && docker-compose up -d
+      docker-compose down -v && docker-compose pull && docker-compose up -d
       docker-compose exec workspace bash -c "composer update -o"
-      docker-compose exec workspace bash -c "ncu && ncu -u"
-      docker-compose exec workspace bash -c "npm update"
-      docker-compose exec workspace bash -c "npm audit fix"
-      docker-compose exec workspace bash -c "npm run build"
+      docker-compose exec workspace bash -c "source /usr/local/nvm/nvm.sh && ncu && ncu -u"
+      docker-compose exec workspace bash -c "source /usr/local/nvm/nvm.sh && npm update"
+      docker-compose exec workspace bash -c "source /usr/local/nvm/nvm.sh && npm audit fix"
+      docker-compose exec workspace bash -c "source /usr/local/nvm/nvm.sh && npm run build"
       break;;
     3 )
       docker-compose down
@@ -34,10 +34,10 @@ while true; do
       docker-compose exec workspace bash
       break;;
     5 )
-      docker-compose exec workspace bash -c "ncu && ncu -u"
-      docker-compose exec workspace bash -c "npm update"
-      docker-compose exec workspace bash -c "npm audit fix"
-      docker-compose exec workspace bash -c "npm run dev"
+      docker-compose exec workspace bash -c "source /usr/local/nvm/nvm.sh && ncu && ncu -u"
+      docker-compose exec workspace bash -c "source /usr/local/nvm/nvm.sh && npm update"
+      docker-compose exec workspace bash -c "source /usr/local/nvm/nvm.sh && npm audit fix"
+      docker-compose exec workspace bash -c "source /usr/local/nvm/nvm.sh && npm run dev"
       break;;
     6 )
       docker-compose exec workspace bash -c "php artisan migrate"

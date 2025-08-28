@@ -181,7 +181,7 @@ const UnscheduledSubjectClassRow = React.memo(({ curriculum, subjectClass, users
   </React.Fragment>;
 });
 
-const SchedulerForm = ({ academicYearScheduleId }) => {
+const SchedulerForm = ({ academicYearScheduleId, defaultSelectedDepartment = null, defaultSelectedUser = null }) => {
   const { auth: { token, department: authUserDepartment, roles: authUserRoles } } = usePage().props;
 
   const [users, setUsers] = useState([]);
@@ -360,7 +360,7 @@ const SchedulerForm = ({ academicYearScheduleId }) => {
 
       const { data: departments } = (await fetchDepartments()).data;
       const defaultDepartment = authUserDepartment
-        ? find(departments, { id: authUserDepartment.id }) || first(departments)
+        ? find(departments, { id: defaultSelectedDepartment?.id ?? defaultSelectedUser?.department?.id ?? authUserDepartment.id }) || first(departments)
         : first(departments);
 
       const { data: courses } = (await fetchCourses(defaultDepartment)).data;

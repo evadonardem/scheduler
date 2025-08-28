@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AcademicYearScheduleFullDetailsResource;
+use App\Http\Resources\RoomResource;
 use App\Http\Resources\SubjectClassResource;
 use App\Models\AcademicYearSchedule;
 use App\Models\SubjectClass;
@@ -53,6 +54,16 @@ class AcademicYearScheduleController extends Controller
 
         if (! $authUserRoles->contains(fn ($role) => in_array($role, ['Super Admin', 'Dean', 'Associate Dean', 'HR Admin', 'Room Admin']))) {
             $scheduledSubjectClassesQuery->where('sc.assigned_to_user_id', $authUser->id);
+        } else {
+            $view = $request->input('filters.view');
+            $viewType = $request->input('filters.viewType');
+            $filterUserId = $request->input('filters.user.id');
+            if (
+                ! ($view === 'week' && $viewType === 'resource') &&
+                $filterUserId
+            ) {
+                $scheduledSubjectClassesQuery->where('sc.assigned_to_user_id', $filterUserId);
+            }
         }
 
         $scheduledSubjectClasses = $scheduledSubjectClassesQuery->with([
@@ -121,7 +132,15 @@ class AcademicYearScheduleController extends Controller
             },
         ]);
 
-        $unscheduledSubjectClasses = $academicYearSchedule->subjectClasses->filter(function ($subjectClass) {
+        $unscheduledSubjectClasses = $academicYearSchedule->subjectClasses->filter(function ($subjectClass) use ($request) {
+            $filterUserId = $request->input('filters.user.id');
+            if (
+                $filterUserId &&
+                $subjectClass->assigned_to_user_id != $filterUserId
+            ) {
+                return false;
+            }
+
             if (is_null($subjectClass->schedule)) {
                 return true;
             }
@@ -138,6 +157,7 @@ class AcademicYearScheduleController extends Controller
             'meta' => [
                 'scheduledEvents' => $scheduledEvents,
                 'unscheduledSubjectClasses' => SubjectClassResource::collection($unscheduledSubjectClasses),
+                'rooms' => RoomResource::collection($rooms),
             ],
         ]);
     }

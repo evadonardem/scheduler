@@ -27,7 +27,7 @@ const CustomToolbar = ({ fileName }) => {
   </Toolbar>);
 };
 
-const SchedulerFacultyLoading = ({ academicYearScheduleId }) => {
+const SchedulerFacultyLoading = ({ academicYearScheduleId, defaultSelectedDepartment = null, defaultSelectedUser = null }) => {
   const { auth: { token, id: authUserId, department: authUserDepartment, roles: authUserRoles } } = usePage().props;
 
   const [users, setUsers] = useState([]);
@@ -107,7 +107,7 @@ const SchedulerFacultyLoading = ({ academicYearScheduleId }) => {
     (async () => {
       const { data: departments } = (await fetchDepartments()).data;
       const defaultDepartment = authUserDepartment
-        ? find(departments, { id: authUserDepartment.id }) || first(departments)
+        ? find(departments, { id: defaultSelectedDepartment?.id ?? defaultSelectedUser?.department?.id ?? authUserDepartment.id }) || first(departments)
         : first(departments);
       const { data: users } = (await fetchUsers(defaultDepartment)).data;
       const { data: facultiesLoadUnits } = (await fetchFacultiesLoadingUnits(academicYearScheduleId, defaultDepartment.id)).data;
@@ -117,8 +117,8 @@ const SchedulerFacultyLoading = ({ academicYearScheduleId }) => {
       setUsers(users);
       setSelectedDepartment(defaultDepartment);
 
-      if (!canSelectOtherUser) {
-        const defaultUser = find(users, { id: authUserId }) || first(users);
+      if (!canSelectOtherUser || defaultSelectedUser) {
+        const defaultUser = find(users, { id: defaultSelectedUser?.id ?? authUserId }) || first(users);
         setSelectedUser(defaultUser);
       }
 
