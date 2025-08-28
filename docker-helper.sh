@@ -1,4 +1,4 @@
-echo 'I-Evaluate Development Platform';
+echo 'KCP Scheduler Development Platform';
 while true; do
   echo 'List of actions';
   echo '[1] Start application';
