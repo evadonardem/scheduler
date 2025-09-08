@@ -150,7 +150,7 @@ class UserController extends Controller
             $user->syncRoles($roles);
         }
 
-        if ($specializations) {
+        if (is_array($specializations)) {
             $specializations = collect($specializations)->sort()->values()->toArray();
             $user->specializations = $specializations;
             $user->save();
