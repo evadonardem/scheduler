@@ -140,7 +140,7 @@ class UserController extends Controller
         ]);
 
         $roles = $request->input('roles', []);
-        $specializations = $request->input('specializations', []);
+        $specializations = $request->input('specializations');
 
         if ($data) {
             $user->update($data);
