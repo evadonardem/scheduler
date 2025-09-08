@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\CurriculumController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\SemesterController;
+use App\Http\Controllers\Api\SpecializationController;
 use App\Http\Controllers\Api\SubjectController;
 use App\Http\Controllers\Api\UserController;
 use App\Models\AcademicYearSchedule;
@@ -345,6 +346,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::get('departments', DepartmentController::class);
         Route::get('rooms', RoomController::class);
         Route::get('semesters', SemesterController::class);
+        Route::get('specializations', SpecializationController::class);
         Route::get('subjects', SubjectController::class);
         Route::get('users', UserController::class);
     });

@@ -9,6 +9,7 @@ import { debounce, includes } from "lodash";
 import { isEqual, pickBy } from "lodash";
 import axios from "axios";
 import AutocompleteDepartment from "../../Components/Common/AutocompleteDepartment";
+import AutocompleteSpecialization from "../../Components/Common/AutocompleteSpecializations";
 
 const VisuallyHiddenInput = styled('input')({
     clip: 'rect(0 0 0 0)',
@@ -158,6 +159,42 @@ const List = ({ errors, users }) => {
                     <UserRoleSelect row={row} />
                 </Box>;
             },
+        },
+        {
+            field: 'specializations',
+            flex: 1,
+            headerName: 'Specializations',
+            sortable: false,
+            editable: true,
+            renderCell: ({ row: { specializations } }) => {
+                return <Box>
+                    {specializations && specializations.length > 0 ? specializations.map((specialization, index) => (
+                        <Chip label={specialization} key={index} size="small" sx={{ mr: 0.5 }} />
+                    )) : '-'}
+                </Box>;
+            },
+            renderEditCell: (params) => {
+                const apiRef = useGridApiContext();
+                const { row } = params;
+                let { specializations } = row;
+                const handleChangeSpecialiazations = (updatedSpecializations) => {
+                    const updatedSelectedSpecializations = updatedSpecializations ?? [];
+                    specializations = updatedSelectedSpecializations.map(s => s.name);
+
+                    apiRef.current.setEditCellValue({
+                        id: row.id,
+                        field: 'specializations',
+                        value: specializations,
+                    });
+                };
+
+                return <Box key={`user-${row.id}-${specializations.join(',')}`} sx={{ width: '100%' }}>
+                    <AutocompleteSpecialization
+                        userId={row.id}
+                        defaultSelectedSpecializations={specializations}
+                        onChange={handleChangeSpecialiazations} />
+                </Box>;
+            },
         }
     ];
 
@@ -301,8 +338,11 @@ const List = ({ errors, users }) => {
                             editMode="row"
                             isCellEditable={(params) => {
                                 const { field, row } = params;
+                                if (row.id !== authId || ['last_name', 'first_name'].includes(field)) {
+                                    return ['Super Admin', 'HR Admin'].some(role => includes(authUserRoles, role));
+                                }
                                 return ['Super Admin', 'HR Admin'].some(role => includes(authUserRoles, role)) &&
-                                    (field === 'roles' && row.id !== authId || ['last_name', 'first_name'].includes(field));
+                                    ((field === 'roles' || field === 'specializations'));
                             }}
                             onPaginationModelChange={handlePaginationChange}
                             pageSizeOptions={[5, 10, 15, { label: 'All', value: -1 }]}
@@ -312,6 +352,9 @@ const List = ({ errors, users }) => {
                             rowCount={rowCount}
                             rows={users.data}
                             disableColumnMenu
+
+                            getRowHeight={() => 'auto'}
+                            getEstimatedRowHeight={() => 100}
                         />
                     </Box>
                 </Grid>

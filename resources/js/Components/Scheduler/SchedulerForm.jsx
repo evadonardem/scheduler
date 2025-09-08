@@ -145,7 +145,10 @@ const UnscheduledSubjectClassRow = React.memo(({ curriculum, subjectClass, users
                           renderInput={(params) => <TextField {...params} placeholder="Assign instructor" size="small" />}
                         />
                         : assignedToDetails}
-
+                      {assignedToUserId && users.find((user) => user.id == assignedToUserId)?.specializations.length > 0
+                        ? <Typography sx={{ mt: 2 }} variant="subtitle2">Specializations</Typography>
+                        : (assignedToUserId ? <Typography sx={{ mt: 2 }} variant="subtitle2">No Specializations Set</Typography> : null)}
+                      {users.find((user) => user.id == assignedToUserId)?.specializations.map((s) => <Chip key={`specialization-${s}`} label={s} sx={{ mr: 1, mt: 1 }} />) || null}
                     </TableCell>
                   </TableRow>
                   <TableRow key={`subject-class-${subjectClassId}-schedule-days`} sx={{ border: "none" }}>
@@ -653,6 +656,7 @@ const SchedulerForm = ({ academicYearScheduleId, defaultSelectedDepartment = nul
                                       <TableCell>Code</TableCell>
                                       <TableCell>Subject</TableCell>
                                       <TableCell>Instructor</TableCell>
+                                      <TableCell>Specializations</TableCell>
                                       <TableCell>Schedule</TableCell>
                                       <TableCell>Credit Hrs.</TableCell>
                                     </TableRow>
@@ -670,14 +674,17 @@ const SchedulerForm = ({ academicYearScheduleId, defaultSelectedDepartment = nul
                                       } = subjectClass;
                                       const assignedTo = assigned_to;
                                       let assignedToDetails = null;
+                                      let specializationsDetails = null;
                                       if (assignedTo) {
                                         const {
                                           email,
+                                          specializations,
                                           institution_id: id,
                                           first_name: firstName,
                                           last_name: lastName,
                                         } = assignedTo;
                                         assignedToDetails = `${id} - ${lastName}, ${firstName} (${email})`;
+                                        specializationsDetails = specializations.length > 0 ? specializations.map(s => <Chip label={s} />) : '-';
                                       }
                                       return <TableRow
                                         key={`scheduled-subject-class-${subjectClassId}`}
@@ -686,6 +693,7 @@ const SchedulerForm = ({ academicYearScheduleId, defaultSelectedDepartment = nul
                                         <TableCell>{subjectClassCode}</TableCell>
                                         <TableCell>{`(${subjectCode}) ${subjectTitle}`}</TableCell>
                                         <TableCell>{assignedToDetails ?? 'Unassigned'}</TableCell>
+                                        <TableCell>{specializationsDetails ?? '-'}</TableCell>
                                         <TableCell>{schedule}</TableCell>
                                         <TableCell>{Number(creditHours).toFixed(2)}</TableCell>
                                       </TableRow>;

@@ -21,6 +21,7 @@ class UserResource extends JsonResource
                 ? DepartmentResource::make($this->departments->first())
                 : null,
             'roles' => $this->roles->pluck('name'),
+            'specializations' => $this->specializations ?? [],
             'total_units' => $this->whenHas('total_units', function () {
                 return $this->total_units;
             }),

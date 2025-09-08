@@ -140,6 +140,7 @@ class UserController extends Controller
         ]);
 
         $roles = $request->input('roles', []);
+        $specializations = $request->input('specializations', []);
 
         if ($data) {
             $user->update($data);
@@ -147,6 +148,12 @@ class UserController extends Controller
 
         if ($roles) {
             $user->syncRoles($roles);
+        }
+
+        if ($specializations) {
+            $specializations = collect($specializations)->sort()->values()->toArray();
+            $user->specializations = $specializations;
+            $user->save();
         }
 
         $user->refresh();
